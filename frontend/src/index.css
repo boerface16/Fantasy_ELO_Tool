@@ -1,0 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* Primary color — MLB blue */
+  --color-primary: #1E40AF;
+
+  /* ELO tier colors */
+  --color-elo-elite: #DC2626;
+  --color-elo-high: #F97316;
+  --color-elo-above: #FBBF24;
+  --color-elo-average: #6B7280;
+  --color-elo-below: #60A5FA;
+  --color-elo-low: #3B82F6;
+  --color-elo-cold: #1D4ED8;
+
+  /* Delta colors */
+  --color-delta-up: #16A34A;
+  --color-delta-down: #DC2626;
+
+  /* Background colors */
+  --color-bg-page: #FAFAFA;
+  --color-bg-card: #FFFFFF;
+  --color-border-line: #E5E7EB;
+
+  /* Font family */
+  --font-display: 'Lexend', sans-serif;
+
+  /* Box shadow */
+  --shadow-modern: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+body {
+  background-color: var(--color-bg-page);
+  font-family: var(--font-display);
+  margin: 0;
+}

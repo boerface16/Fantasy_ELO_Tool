@@ -1,0 +1,6 @@
+# Team ELO Configuration (FiveThirtyEight-style)
+initial_elo: 1500.0
+k_factor: 4.0
+home_field_advantage: 24.0       # added to home team's ELO for expected score calc
+season_regression_fraction: 0.333  # regress 1/3 toward mean each new season
+elo_divisor: 400.0                 # standard ELO divisor

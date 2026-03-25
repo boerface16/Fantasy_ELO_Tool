@@ -1,0 +1,22 @@
+# ESPN H2H Points League Scoring
+# Format: H2H Points
+# Lineup: C, 1B, 2B, 3B, SS, DH/UTIL, OF×3, SP/RP×3, Bench×3, IL×3
+
+batter:
+  TB: 1       # Total bases: 1B=1, 2B=2, 3B=3, HR=4
+  R: 1        # Runs scored
+  RBI: 1      # Runs batted in
+  BB: 1       # Walks
+  SB: 1       # Stolen bases
+  SO: -1      # Strikeouts
+
+pitcher:
+  IP: 3       # Per full inning pitched
+  K: 1        # Strikeouts
+  W: 2        # Wins
+  SV: 5       # Saves
+  HD: 2       # Holds
+  H: -1       # Hits allowed
+  ER: -2      # Earned runs
+  BB: -1      # Walks allowed
+  L: -2       # Losses

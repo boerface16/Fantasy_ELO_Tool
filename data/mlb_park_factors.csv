@@ -1,0 +1,31 @@
+home_team,venue,park_factor
+COL,Coors Field,1.13
+BOS,Fenway Park,1.04
+AZ,Chase Field,1.03
+CIN,Great American Ball Park,1.03
+MIN,Target Field,1.02
+ATL,Truist Park,1.01
+MIA,loanDepot park,1.01
+LAA,Angel Stadium,1.01
+WSH,Nationals Park,1.01
+LAD,Dodger Stadium,1.01
+KC,Kauffman Stadium,1.01
+PHI,Citizens Bank Park,1.01
+BAL,Oriole Park at Camden Yards,1.00
+STL,Busch Stadium,1.00
+TOR,Rogers Centre,1.00
+NYY,Yankee Stadium,1.00
+DET,Comerica Park,1.00
+HOU,Daikin Park,1.00
+CWS,Rate Field,0.99
+PIT,PNC Park,0.99
+NYM,Citi Field,0.98
+TEX,Globe Life Field,0.97
+SF,Oracle Park,0.97
+CLE,Progressive Field,0.97
+MIL,American Family Field,0.97
+CHC,Wrigley Field,0.97
+SD,Petco Park,0.97
+SEA,T-Mobile Park,0.91
+TB,Tropicana Field,1.00
+OAK,Oakland Coliseum,1.00

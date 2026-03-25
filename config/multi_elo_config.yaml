@@ -1,0 +1,334 @@
+# config/multi_elo_config.yaml
+
+# =============================================================================
+# Multi-Dimensional ELO Configuration V2.0
+# =============================================================================
+
+version: "2.0"  # Matchup Engine V2: DIPS-based asymmetric weights
+
+# -----------------------------------------------------------------------------
+# Constants
+# -----------------------------------------------------------------------------
+constants:
+  default_elo: 1500.0
+  elo_min: 500.0
+  elo_max: 3000.0
+  min_reliability: 0.3
+  default_expected_divisor: 400.0  # 기본 분모 (레거시 호환)
+
+# -----------------------------------------------------------------------------
+# Batter Dimensions (5)
+# expected_divisor = 2 × std (실측 표준편차 기반)
+# -----------------------------------------------------------------------------
+batter_dimensions:
+  - name: contact
+    index: 0
+    k_factor: 12.0
+    scale: 5.0
+    reliability_threshold: 400
+    expected_divisor: 127.0  # 2 × 63.6 (실측 std)
+    description: "삼진 회피 + BIP 안타(약한 반영)"
+
+  - name: power
+    index: 1
+    k_factor: 14.4
+    scale: 10.0
+    reliability_threshold: 200
+    expected_divisor: 218.0  # 2 × 109.2 (실측 std)
+    description: "장타력"
+
+  - name: discipline
+    index: 2
+    k_factor: 12.0
+    scale: 5.0
+    reliability_threshold: 400
+    expected_divisor: 143.0  # 2 × 71.5 (실측 std)
+    description: "선구안 (BB 전용)"
+
+  - name: speed
+    index: 3
+    k_factor: 36.0
+    scale: 4.0
+    reliability_threshold: 50
+    expected_divisor: 425.0  # 2 × 212.3 (실측 std)
+    description: "주루 능력"
+
+  - name: clutch
+    index: 4
+    k_factor: 18.0
+    scale: 6.0
+    reliability_threshold: 100
+    expected_divisor: 115.0  # 2 × 57.3 (실측 std)
+    description: "클러치 상황 대응"
+
+# -----------------------------------------------------------------------------
+# Pitcher Dimensions (4)
+# V2: dominance → bip_suppression (DIPS 기반)
+# -----------------------------------------------------------------------------
+pitcher_dimensions:
+  - name: stuff
+    index: 0
+    k_factor: 12.0
+    scale: 5.0
+    reliability_threshold: 400
+    expected_divisor: 132.0  # 2 × 66.1 (실측 std)
+    maps_to_batter: contact
+    description: "순수 삼진 유발력 (FIP 기반, K/HR만 반영)"
+
+  - name: bip_suppression
+    index: 1
+    k_factor: 4.0   # 낮은 K-factor: BABIP 노이즈 억제
+    scale: 3.0       # 낮은 scale: 느린 ELO 변동
+    reliability_threshold: 400
+    expected_divisor: 181.0  # 2 × 90.3 (실측 std)
+    maps_to_batter: contact
+    description: "BIP 피안타 억제력 (BABIP 노이즈 인정, 느린 ELO)"
+
+  - name: command
+    index: 2
+    k_factor: 12.0
+    scale: 5.0
+    reliability_threshold: 400
+    expected_divisor: 148.0  # 2 × 74.1 (실측 std)
+    maps_to_batter: discipline
+    description: "제구"
+
+  - name: clutch
+    index: 3
+    k_factor: 18.0
+    expected_divisor: 123.0  # 2 × 61.7 (실측 std)
+    scale: 6.0
+    reliability_threshold: 100
+    maps_to_batter: clutch
+    description: "클러치 상황 대응"
+
+# -----------------------------------------------------------------------------
+# Event-Dimension Mapping (Batter) — V2 수정
+# StrikeOut discipline 제거, BIP contact 가중치 대폭 축소
+# -----------------------------------------------------------------------------
+event_weights:
+  Single:
+    contact: 0.3       # V1: 1.0 → V2: 0.3 (BIP 약한 반영)
+    power: 0.0
+    discipline: 0.0
+    speed: 0.0         # V2.1: speed 비활성화
+    clutch_base: 0.5
+
+  Double:
+    contact: 0.3       # V1: 0.7 → V2: 0.3
+    power: 0.7
+    discipline: 0.0
+    speed: 0.0         # V2.1: speed 비활성화
+    clutch_base: 0.6
+
+  Triple:
+    contact: 0.3
+    power: 0.3
+    discipline: 0.0
+    speed: 0.0         # V2.1: speed 비활성화 (was 0.8)
+    clutch_base: 0.7
+
+  HR:
+    contact: 0.2       # BIP 발생 → 약한 Contact 크레딧
+    power: 1.0
+    discipline: 0.0
+    speed: 0.0
+    clutch_base: 0.8
+
+  BB:
+    contact: 0.0
+    power: 0.0
+    discipline: 1.0    # Discipline 성공
+    speed: 0.0
+    clutch_base: 0.4
+
+  HBP:
+    contact: 0.0
+    power: 0.0
+    discipline: 0.8
+    speed: 0.0
+    clutch_base: 0.3
+
+  IBB:
+    contact: 0.0
+    power: 0.0
+    discipline: 0.6
+    speed: 0.0
+    clutch_base: 0.2
+
+  StrikeOut:
+    contact: -1.0      # V1: -0.8 → V2: -1.0 (Contact = Anti-K 핵심)
+    power: 0.0
+    discipline: 0.0    # V1: -0.7 → V2: 0.0 (Discipline에서 K 완전 제거!)
+    speed: 0.0
+    clutch_base: -0.5
+
+  OUT:
+    contact: -0.15     # V1: -0.5 → V2: -0.15 (BIP 약한 반영)
+    power: -0.2
+    discipline: 0.0
+    speed: 0.0
+    clutch_base: -0.3
+
+  FC:
+    contact: -0.1
+    power: -0.2
+    discipline: 0.0
+    speed: 0.0
+    clutch_base: -0.4
+
+  GIDP:
+    contact: -0.1
+    power: -0.7
+    discipline: 0.0
+    speed: 0.0
+    clutch_base: -0.8
+    clutch_multiplier: 2.0
+
+  SAC:
+    contact: 0.2
+    power: 0.0
+    discipline: 0.0
+    speed: 0.0
+    clutch_base: 0.3
+
+  E:
+    contact: 0.1
+    power: 0.0
+    discipline: 0.0
+    speed: 0.0
+    clutch_base: 0.2
+
+# -----------------------------------------------------------------------------
+# Pitcher Event-Dimension Mapping (V2 신규 — 비대칭 가중치)
+# DIPS 원칙: K/BB/HR만 투수 통제, BIP는 약하게 반영
+# -----------------------------------------------------------------------------
+pitcher_event_weights:
+  StrikeOut:
+    stuff: 1.0         # 핵심: 삼진 = Stuff 성공
+    bip_suppression: 0.0
+    command: 0.3        # V2 fix: K = 볼넷 안 줌 = Command 성공 (약한 보상)
+    clutch_base: 0.5
+
+  BB:
+    stuff: 0.0
+    bip_suppression: 0.0
+    command: -1.0      # 핵심: 볼넷 = Command 실패
+    clutch_base: -0.4
+
+  HBP:
+    stuff: 0.0
+    bip_suppression: 0.0
+    command: -0.8
+    clutch_base: -0.3
+
+  IBB:
+    stuff: 0.0
+    bip_suppression: 0.0
+    command: -0.3
+    clutch_base: -0.2
+
+  HR:
+    stuff: -0.8        # 핵심: 홈런 = 실투 = Stuff 실패
+    bip_suppression: -0.5
+    command: -0.3
+    clutch_base: -0.8
+
+  Single:
+    stuff: 0.0         # DIPS: BIP 결과는 Stuff에 미반영
+    bip_suppression: -0.6
+    command: 0.0
+    clutch_base: -0.5
+
+  Double:
+    stuff: 0.0
+    bip_suppression: -0.8
+    command: 0.0
+    clutch_base: -0.6
+
+  Triple:
+    stuff: 0.0
+    bip_suppression: -0.9
+    command: 0.0
+    clutch_base: -0.7
+
+  OUT:
+    stuff: 0.0
+    bip_suppression: 0.4
+    command: 0.15       # V2 fix: 아웃 처리 = Command 약한 보상
+    clutch_base: 0.3
+
+  GIDP:
+    stuff: 0.0
+    bip_suppression: 0.5
+    command: 0.15
+    clutch_base: 0.8
+    clutch_multiplier: 2.0
+
+  FC:
+    stuff: 0.0
+    bip_suppression: 0.3
+    command: 0.15
+    clutch_base: 0.4
+
+  SAC:
+    stuff: 0.0
+    bip_suppression: 0.2
+    command: 0.0
+    clutch_base: -0.3
+
+  E:
+    stuff: 0.0
+    bip_suppression: -0.1
+    command: 0.0
+    clutch_base: -0.2
+
+# -----------------------------------------------------------------------------
+# Baserunning Events (Speed only) — 변경 없음
+# -----------------------------------------------------------------------------
+baserunning_weights:
+  SB:
+    speed: 0.0         # V2.1: speed 비활성화 (was 1.0)
+    clutch_base: 0.3
+
+  CS:
+    speed: 0.0         # V2.1: speed 비활성화 (was -3.0)
+    clutch_base: -0.7
+
+# -----------------------------------------------------------------------------
+# Composite Weights — V2: dominance → bip_suppression
+# -----------------------------------------------------------------------------
+composite_weights:
+  batter:
+    default:
+      contact: 0.25     # V2.1: speed 제외로 재분배
+      power: 0.25
+      discipline: 0.25
+      speed: 0.00       # V2.1: speed 비활성화
+      clutch: 0.25
+
+  pitcher:
+    starter:
+      stuff: 0.25
+      bip_suppression: 0.20
+      command: 0.40
+      clutch: 0.15
+
+    reliever:
+      stuff: 0.35
+      bip_suppression: 0.20
+      command: 0.30
+      clutch: 0.15
+
+    closer:
+      stuff: 0.35
+      bip_suppression: 0.25
+      command: 0.25
+      clutch: 0.15
+
+# -----------------------------------------------------------------------------
+# Clutch Conditions — 변경 없음
+# -----------------------------------------------------------------------------
+clutch_config:
+  leverage_threshold: 2.0
+  max_multiplier: 2.0

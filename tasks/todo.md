@@ -18,3 +18,25 @@
 - 30 teams with ELO: NYY #1 (1561), COL #30 (1353)
 - Both API endpoints returning correct data
 - Bulk loader (`scripts/bulk_load.py`) reduced load time from 60+ min to ~90 seconds
+
+---
+
+# Phase 2: Fantasy Backend Modules
+
+## Tasks
+- [x] Port matchup_predictor.py from TypeScript (TDD, cross-validate) — 24/24 tests
+- [x] roster_parser.py — parse pasted roster text, fuzzy-match names — 11/11 tests
+- [x] schedule_fetcher.py — MLB Stats API for probable pitchers — 9/9 tests
+- [x] opponent_resolver.py — roster × schedule → matchup tuples — 7/7 tests
+- [x] elo_lookup.py — batch Supabase queries, in-memory cache — 7/7 tests
+- [ ] fangraphs_enricher.py — pybaseball wrapper with daily cache (deferred)
+- [x] fantasy_calculator.py — probabilities → ESPN fantasy points — 12/12 tests
+- [x] weekly_projection.py — orchestrator combining all modules — 8/8 tests
+- [x] Wire up src/api/routers/fantasy.py endpoints + matchup predict endpoint
+
+## Review
+- 98/98 tests passing across all modules
+- 7 new fantasy modules in src/fantasy/
+- 5 new API endpoints: POST /roster, GET /schedule, POST /weekly-projection, GET /matchup/{b}/{p}, GET /predict/{b}/{p}
+- Matchup predictor cross-validated against TypeScript (identical constants and logic)
+- fangraphs_enricher deferred — not on critical path for core functionality

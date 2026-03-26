@@ -45,7 +45,7 @@ def prepare_pa_records(pa_df: pd.DataFrame) -> list[dict]:
     return records
 
 
-def upload_table(client, table_name: str, records: list[dict], batch_size: int = 1000,
+def upload_table(client, table_name: str, records: list[dict], batch_size: int = 500,
                  on_conflict: str | None = None) -> int:
     """Supabase 테이블에 batch upsert.
 

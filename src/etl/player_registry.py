@@ -103,6 +103,7 @@ def register_new_players(new_ids: set[int], pa_df, client) -> int:
 
     records = []
     for pid in sorted(new_ids):
+        pid = int(pid)  # ensure native int for JSON serialization
         info = fetch_player_from_mlb_api(pid)
         if info:
             records.append(info)

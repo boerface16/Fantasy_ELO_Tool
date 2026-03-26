@@ -152,7 +152,7 @@ def _prepare_talent_pa_detail_records(details: list[dict]) -> list[dict]:
             'talent_type': d['talent_type'],
             'elo_before': round(float(d['elo_before']), 4),
             'elo_after': round(float(d['elo_after']), 4),
-            'delta': round(float(d['delta']), 4),
+            # delta is a GENERATED column — do not include
         })
     return records
 
@@ -166,10 +166,10 @@ def _prepare_talent_ohlc_records(ohlc_list: list[dict]) -> list[dict]:
             'game_date': ohlc['game_date'],
             'talent_type': ohlc['talent_type'],
             'elo_type': ohlc.get('elo_type', 'SEASON'),
-            'open': round(float(ohlc['open']), 4),
-            'high': round(float(ohlc['high']), 4),
-            'low': round(float(ohlc['low']), 4),
-            'close': round(float(ohlc['close']), 4),
+            'open_elo': round(float(ohlc['open']), 4),
+            'high_elo': round(float(ohlc['high']), 4),
+            'low_elo': round(float(ohlc['low']), 4),
+            'close_elo': round(float(ohlc['close']), 4),
             'total_pa': int(ohlc.get('total_pa', 0)),
         })
     return records

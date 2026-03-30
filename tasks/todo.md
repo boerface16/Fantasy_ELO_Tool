@@ -40,3 +40,31 @@
 - 5 new API endpoints: POST /roster, GET /schedule, POST /weekly-projection, GET /matchup/{b}/{p}, GET /predict/{b}/{p}
 - Matchup predictor cross-validated against TypeScript (identical constants and logic)
 - Fangraphs enricher: daily parquet cache in .cache/, auto-cleanup of stale files
+
+---
+
+# Phase 3: Fantasy Frontend
+
+## Tasks
+- [x] Create types/fantasy.ts — TypeScript interfaces for all API responses
+- [x] Create api/fantasy.ts — API client functions via apiClient
+- [x] Create hooks/useFantasy.ts — React Query hooks (useQuery + useMutation)
+- [x] Create TeamEloBadge component — inline hot/cold team indicator
+- [x] Create FantasyPointsPanel component — total/batter/pitcher summary cards
+- [x] Create WeekSelector component — Mon-Sun week picker with prev/next
+- [x] Create RosterUpload component — paste area + parse + results table
+- [x] Create WeeklyGrid component — batter matchup table (rows × days)
+- [x] Create PitcherGrid component — pitcher start projections table
+- [x] Create FangraphsSidebar component — wRC+/ERA- context display
+- [x] Create FantasyDashboard page — roster upload → week summary
+- [x] Create BatterMatchups page — full weekly batter grid
+- [x] Create PitcherMatchups page — pitcher projection view
+- [x] Create FantasyMatchupDetail page — single matchup deep dive
+- [x] Add routes to App.tsx (/fantasy, /fantasy/batters, /fantasy/pitchers, /fantasy/matchup/:b/:p)
+- [x] Add "Fantasy" nav link to Header.tsx
+
+## Review
+- 14 new frontend files created (types, api, hooks, 7 components, 4 pages)
+- 2 existing files modified (App.tsx, Header.tsx)
+- Backend tests still 112/112 passing
+- Node.js not available in environment — TS type check deferred to user verification

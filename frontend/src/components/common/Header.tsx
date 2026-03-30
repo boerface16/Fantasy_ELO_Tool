@@ -56,6 +56,16 @@ export default function Header() {
             Matchup
           </Link>
           <Link
+            to="/fantasy"
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+              location.pathname.startsWith('/fantasy')
+                ? 'bg-primary text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Fantasy
+          </Link>
+          <Link
             to="/guide"
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
               location.pathname === '/guide'

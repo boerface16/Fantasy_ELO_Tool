@@ -17,6 +17,9 @@ venv/
 # Logs
 logs/
 
+# Generated reports
+reports/
+
 # Node
 frontend/node_modules/
 frontend/dist/

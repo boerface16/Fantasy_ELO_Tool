@@ -68,3 +68,27 @@
 - 2 existing files modified (App.tsx, Header.tsx)
 - Backend tests still 112/112 passing
 - Node.js not available in environment — TS type check deferred to user verification
+
+---
+
+# Phase 4: PDF Export + Daily Pipeline
+
+## Tasks
+- [x] Create `src/fantasy/report.py` — reportlab PDF generation
+- [x] Create `src/api/routers/export.py` — POST /api/fantasy/export/pdf endpoint
+- [x] Modify `src/api/main.py` — register export router
+- [x] Create `scripts/run_daily.py` — 5-step daily orchestrator
+- [x] Create `scripts/run_weekly.py` — weekly Fangraphs cache refresh
+- [x] Create `frontend/src/pages/ExportPage.tsx` — PDF trigger + download UI
+- [x] Modify `frontend/src/App.tsx` — add /export route
+- [x] Create `.github/workflows/daily_update.yml` — cron at 8am EST
+- [x] Run tests to verify no regressions — 112/112 passing
+
+## Review
+- 6 new files created, 2 existing files modified
+- PDF generation tested: valid PDF with title, summary, batter/pitcher tables, team ELO rankings
+- Export endpoint: POST /api/fantasy/export/pdf → StreamingResponse with downloadable PDF
+- Daily pipeline: 4-step orchestrator (player ELO, team ELO, Fangraphs cache, schedule fetch)
+- Weekly script: refreshes Fangraphs batting + pitching stat caches
+- GitHub Actions: daily cron at 8am EST + manual dispatch with optional date input
+- All 112 backend tests still passing

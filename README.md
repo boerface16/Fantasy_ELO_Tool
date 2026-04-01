@@ -7,11 +7,13 @@ A fantasy baseball tool that combines MLB ELO ratings with ESPN H2H points scori
 - **Player ELO** — zero-sum ratings for every MLB batter and pitcher, updated per plate appearance
 - **9D Talent ELO** — separate ELO tracks for power, discipline, speed, contact, eye (batters) and stuff, command, stamina, groundball tendency (pitchers)
 - **Team ELO** — FiveThirtyEight-style team ratings with home-field advantage, margin-of-victory scaling, and season regression
-- **Fantasy Projections** *(Phase 2+)* — combine ELO matchup predictions with ESPN scoring rules to project weekly fantasy points
+- **Fantasy Projections** — combine ELO matchup predictions with ESPN scoring rules to project weekly fantasy points
+- **PDF Reports** — downloadable weekly projection reports with batter/pitcher breakdowns and team ELO rankings
+- **Daily Automation** — GitHub Actions pipeline updates ELO, schedule, and Fangraphs data daily at 8am EST
 
 ## Current Status
 
-**Phase 1 complete.** Player ELO, talent ELO, and team ELO engines are fully operational with 2025 season data loaded.
+**All 4 phases complete.** Player ELO, talent ELO, team ELO, fantasy backend, fantasy frontend, PDF export, and daily automation are fully operational.
 
 | Metric | Value |
 |--------|-------|
@@ -19,15 +21,20 @@ A fantasy baseball tool that combines MLB ELO ratings with ESPN H2H points scori
 | Date range | 2025-03-27 → 2025-09-28 |
 | Players tracked | 1,469 |
 | Teams tracked | 30 |
+| Backend tests | 112 passing |
+| Fantasy modules | 8 (roster, schedule, ELO lookup, matchup predictor, calculator, projections, Fangraphs, PDF) |
+| API endpoints | 22 across 5 routers |
 
 ## Tech Stack
 
 | Layer | Tech |
 |-------|------|
 | Backend | Python 3.11+, FastAPI, Supabase (PostgreSQL) |
-| Frontend | React 19, Vite, Tailwind CSS, TanStack Query |
-| Data | pybaseball (Statcast), MLB Stats API |
+| Frontend | React 19, Vite, Tailwind CSS v4, TanStack Query |
+| Data | pybaseball (Statcast/Fangraphs), MLB Stats API |
 | ELO Engine | Custom Python — zero-sum with park factors, RE24 baselines |
+| PDF | reportlab |
+| CI/CD | GitHub Actions (daily cron) |
 
 ## Quick Start
 
@@ -77,6 +84,19 @@ npm run dev
 # Opens at http://localhost:5173, proxies /api → localhost:8000
 ```
 
+### Daily Updates
+
+```bash
+# Run the full daily pipeline (player ELO, team ELO, Fangraphs, schedule)
+python -m scripts.run_daily
+
+# Or update a specific date
+python -m scripts.run_daily --date 2025-09-28
+
+# Refresh Fangraphs cache only
+python -m scripts.run_weekly
+```
+
 ## Project Structure
 
 ```
@@ -86,35 +106,63 @@ npm run dev
 │   ├── engine/              # ELO engines (player, talent, team)
 │   ├── etl/                 # Statcast → plate appearances pipeline
 │   ├── pipeline/            # Daily update orchestration
-│   ├── api/                 # FastAPI backend
-│   │   └── routers/         # elo, talent, matchup, fantasy endpoints
-│   └── fantasy/             # (Phase 2) Roster, schedule, projections
+│   ├── fantasy/             # Fantasy modules
+│   │   ├── roster_parser.py       # Parse ESPN roster text, fuzzy-match names
+│   │   ├── schedule_fetcher.py    # MLB Stats API for probable pitchers
+│   │   ├── opponent_resolver.py   # Roster × schedule → matchup tuples
+│   │   ├── elo_lookup.py          # Batch Supabase queries, in-memory cache
+│   │   ├── matchup_predictor.py   # 3-stage PA prediction (Python port of TS)
+│   │   ├── fantasy_calculator.py  # Probabilities → ESPN fantasy points
+│   │   ├── weekly_projection.py   # Orchestrator combining all modules
+│   │   ├── fangraphs_enricher.py  # pybaseball wrapper with daily cache
+│   │   └── report.py             # reportlab PDF generation
+│   └── api/                 # FastAPI backend
+│       └── routers/         # elo, talent, matchup, fantasy, export
 ├── scripts/
 │   ├── bulk_load.py         # Fast data loader (psycopg2, ~90s)
 │   ├── backfill_team_elo.py # Compute team ELO from game results
+│   ├── run_daily.py         # Daily pipeline orchestrator
+│   ├── run_weekly.py        # Weekly Fangraphs cache refresh
 │   └── migrations/          # SQL migrations (001-006)
 ├── frontend/                # React 19 + Vite + Tailwind
-└── tests/                   # pytest test suite
+│   └── src/
+│       ├── pages/           # Dashboard, Fantasy, Batters, Pitchers, Export, etc.
+│       └── components/
+│           ├── matchup/     # Matchup visualization components
+│           └── fantasy/     # Fantasy-specific components (7 total)
+├── .github/workflows/       # GitHub Actions daily automation
+└── tests/                   # pytest test suite (112 tests)
 ```
 
 ## API Endpoints
 
-### Player ELO
-- `GET /api/elo/leaderboard` — ELO rankings by position
-- `GET /api/elo/players/{id}` — player detail + OHLC chart data
-- `GET /api/elo/hot-players` / `cold-players` — streaking players
-- `GET /api/elo/search?q=` — fuzzy player search
+### Player ELO (`/api/elo`)
+- `GET /leaderboard` — ELO rankings by position
+- `GET /players/{id}` — player detail + OHLC chart data
+- `GET /hot-players` / `cold-players` — streaking players
+- `GET /search?q=` — fuzzy player search
+- `GET /league-summary` — league-wide ELO stats
+- `GET /latest-date` / `season-meta` — date/season info
 
-### Talent ELO
-- `GET /api/talent/leaderboard` — 9D talent rankings
-- `GET /api/talent/players/{id}/radar` — radar chart data
+### Talent ELO (`/api/talent`)
+- `GET /leaderboard` — 9D talent rankings
+- `GET /players/{id}/radar` — radar chart data
 
-### Matchup
-- `GET /api/matchup/predict/{batterId}/{pitcherId}` — head-to-head prediction
+### Matchup (`/api/matchup`)
+- `GET /batter/{id}/talent` — batter talent ELO
+- `GET /pitcher/{id}/talent` — pitcher talent ELO
+- `GET /predict/{batterId}/{pitcherId}` — server-side head-to-head prediction
 
-### Team ELO
-- `GET /api/fantasy/team-elo/all` — all 30 teams, ranked
-- `GET /api/fantasy/team-elo/{team_code}` — single team + 20-game trend
+### Fantasy (`/api/fantasy`)
+- `GET /team-elo/all` — all 30 teams, ranked
+- `GET /team-elo/{team_code}` — single team + 20-game trend
+- `POST /roster` — parse roster text, fuzzy-match to DB
+- `GET /schedule?week=` — MLB schedule for given week
+- `POST /weekly-projection` — full weekly projection from roster + date
+- `GET /matchup/{batterId}/{pitcherId}` — single matchup with fantasy points
+
+### Export (`/api/fantasy/export`)
+- `POST /pdf` — generate and download PDF report
 
 ## How the ELO System Works
 
@@ -124,6 +172,9 @@ Each plate appearance is a zero-sum contest between batter and pitcher. The expe
 ```
 K * (actual_delta_run_exp - expected_delta_run_exp)
 ```
+
+### 9D Talent ELO
+Five batter dimensions (contact, power, discipline, speed, eye) and four pitcher dimensions (stuff, command, BIP suppression, groundball tendency) track separate ELO ratings per plate appearance outcome.
 
 ### Team ELO
 FiveThirtyEight-style ratings (K=4, home-field advantage=24 ELO points):
@@ -135,13 +186,51 @@ delta = K * log(|run_diff| + 1) * (actual - expected)
 
 All ratings regress 1/3 toward 1500 at season start.
 
+### Matchup Predictor
+3-stage decision tree predicting plate appearance outcomes:
+1. **Stage 1** — Softmax over BB / K / BIP using discipline/command and contact/stuff z-scores
+2. **Stage 2** — Given ball in play: hit probability from contact/BIP-suppression
+3. **Stage 3** — Given hit: XBH split (1B/2B/3B/HR) from power z-score
+
+Output: per-PA probabilities for BB, K, OUT, 1B, 2B, 3B, HR + expected wOBA.
+
+## Frontend Pages
+
+| Route | Page | Description |
+|-------|------|-------------|
+| `/` | Dashboard | Daily hot/cold players, league summary |
+| `/leaderboard` | Leaderboard | Player ELO rankings by position |
+| `/talent-leaderboard` | Talent | 9D talent rankings |
+| `/matchup` | Matchup | Head-to-head batter vs pitcher prediction |
+| `/fantasy` | Fantasy Dashboard | Roster upload → weekly projections |
+| `/fantasy/batters` | Batter Matchups | Full weekly batter grid |
+| `/fantasy/pitchers` | Pitcher Matchups | Pitcher start projections |
+| `/fantasy/matchup/:b/:p` | Matchup Detail | Single matchup deep dive |
+| `/export` | Export | PDF report generation + download |
+| `/guide` | Guide | ELO system explainer |
+
+## Daily Automation
+
+GitHub Actions runs at 8am EST daily (`.github/workflows/daily_update.yml`):
+
+| Step | Action |
+|------|--------|
+| 1 | Update player ELO + talent from yesterday's games |
+| 2 | Update team ELO from yesterday's results |
+| 3 | Refresh Fangraphs batting + pitching stat caches |
+| 4 | Fetch this week's MLB schedule + probable pitchers |
+
+All steps are idempotent (upsert/cache-skip). Manual trigger available via `workflow_dispatch`.
+
+**Setup**: Add `SUPABASE_URL`, `SUPABASE_KEY`, and `DATABASE_URL` to GitHub repo Secrets.
+
 ## Roadmap
 
 - [x] **Phase 0** — Project setup, FastAPI skeleton, frontend migration
 - [x] **Phase 1** — Team ELO engine, backfill, API endpoints
-- [ ] **Phase 2** — Fantasy backend (roster parser, schedule fetcher, matchup predictor, weekly projections)
-- [ ] **Phase 3** — Fantasy frontend (roster upload, weekly grids, matchup detail pages)
-- [ ] **Phase 4** — PDF export, daily automation (GitHub Actions)
+- [x] **Phase 2** — Fantasy backend (roster parser, schedule fetcher, matchup predictor, weekly projections)
+- [x] **Phase 3** — Fantasy frontend (roster upload, weekly grids, matchup detail pages)
+- [x] **Phase 4** — PDF export, daily automation (GitHub Actions)
 
 ## License
 

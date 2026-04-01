@@ -20,6 +20,7 @@ cp .env.example .env
 # Edit .env with your Supabase credentials:
 #   SUPABASE_URL=https://xxx.supabase.co
 #   SUPABASE_KEY=eyJ...
+#   DATABASE_URL=postgresql://postgres.xxx:YOUR_PASSWORD@host:5432/postgres
 ```
 
 ### Python
@@ -58,16 +59,13 @@ Run each migration in order against your Supabase SQL Editor:
 ### 3a. Load Statcast Data + Player ELO
 
 ```bash
-# Process the full 2025 season (this takes a while)
-python -m scripts.daily_elo --range 2025-03-27 2025-09-28
+# Fast bulk load (~2 minutes for full 2025 season)
+python -m scripts.bulk_load
 ```
-
-This fetches Statcast data for each date, runs the player ELO and 9D talent engines, and uploads results to Supabase.
 
 ### 3b. Backfill Team ELO
 
 ```bash
-# Compute team ELO ratings from 2025 game results
 python -m scripts.backfill_team_elo
 ```
 
@@ -91,13 +89,6 @@ uvicorn src.api.main:app --reload
 
 Runs on `http://localhost:8000`. API docs at `/docs`.
 
-Key endpoint groups:
-- `/api/elo/*` — player ELO leaderboards, search, OHLC history
-- `/api/talent/*` — 9D talent radar, talent leaderboards
-- `/api/matchup/*` — batter vs pitcher talent lookup
-- `/api/fantasy/*` — team ELO ratings and trends
-- `/api/health` — health check
-
 ### Frontend (React + Vite)
 
 ```bash
@@ -109,31 +100,81 @@ Runs on `http://localhost:5173`. Vite proxies `/api` requests to the FastAPI bac
 
 ---
 
-## 5. Running Tests
+## 5. API Endpoints
+
+### Player ELO (`/api/elo`)
+- `GET /leaderboard` — ELO rankings by position
+- `GET /players/{id}` — player detail + OHLC chart data
+- `GET /players/{id}/ohlc` — OHLC candlestick data
+- `GET /players/{id}/stats` — player stats
+- `GET /hot-players` / `cold-players` — streaking players
+- `GET /search?q=` — fuzzy player search
+- `GET /league-summary` — league-wide ELO stats
+- `GET /latest-date` / `season-meta` — date/season info
+
+### Talent ELO (`/api/talent`)
+- `GET /leaderboard` — 9D talent rankings
+- `GET /players/{id}/radar` — radar chart data
+
+### Matchup (`/api/matchup`)
+- `GET /batter/{id}/talent` — batter talent ELO
+- `GET /pitcher/{id}/talent` — pitcher talent ELO
+- `GET /predict/{batterId}/{pitcherId}` — head-to-head prediction
+
+### Fantasy (`/api/fantasy`)
+- `GET /team-elo/all` — all 30 teams, ranked
+- `GET /team-elo/{team_code}` — single team + 20-game trend
+- `POST /roster` — parse roster text, fuzzy-match to DB
+- `GET /schedule?week=` — MLB schedule for given week
+- `POST /weekly-projection` — full weekly projection from roster + date
+- `GET /matchup/{batterId}/{pitcherId}` — single matchup with fantasy points
+
+### Export (`/api/fantasy/export`)
+- `POST /pdf` — generate and download PDF report
+
+### Health
+- `GET /api/health` — health check
+
+---
+
+## 6. Running Tests
 
 ```bash
 python -m pytest tests/ -v
 ```
 
+112 tests across 9 test files covering all fantasy modules, team ELO engine, and matchup predictor.
+
 ---
 
-## 6. Daily Updates (Incremental)
+## 7. Daily Updates
 
-After the initial backfill, update data one day at a time:
+### Automated (GitHub Actions)
+
+The daily pipeline runs automatically at 8am EST via `.github/workflows/daily_update.yml`. See the [Pipeline Guide](pipeline-guide.md) for setup.
+
+### Manual
 
 ```bash
-# Update player ELO for yesterday's games
-python -m scripts.daily_elo
+# Full daily pipeline (player ELO, team ELO, Fangraphs cache, schedule)
+python -m scripts.run_daily
 
-# Update team ELO for yesterday's games
-python -m scripts.backfill_team_elo --date YYYY-MM-DD
+# Specific date
+python -m scripts.run_daily --date 2025-09-28
+
+# Player ELO only
+python -m scripts.daily_elo --date 2025-09-28
+
+# Team ELO only
+python -m scripts.backfill_team_elo --date 2025-09-28
+
+# Refresh Fangraphs cache
+python -m scripts.run_weekly
 ```
-
-For automated daily updates, see the GitHub Actions workflow in `.github/workflows/daily_update.yml` (Phase 4).
 
 ---
 
-## Project Structure
+## 8. Project Structure
 
 ```
 fantasy-matchup-predictor/
@@ -153,7 +194,16 @@ fantasy-matchup-predictor/
 │   │   └── team_elo_engine.py      # FiveThirtyEight-style team ELO
 │   ├── etl/                        # Data extraction and loading
 │   ├── pipeline/                   # Daily pipeline orchestration
-│   ├── fantasy/                    # Fantasy-specific modules (Phase 2+)
+│   ├── fantasy/                    # Fantasy modules
+│   │   ├── roster_parser.py        # Parse ESPN roster text, fuzzy-match
+│   │   ├── schedule_fetcher.py     # MLB Stats API for probable pitchers
+│   │   ├── opponent_resolver.py    # Roster × schedule → matchup tuples
+│   │   ├── elo_lookup.py           # Batch talent ELO queries + cache
+│   │   ├── matchup_predictor.py    # 3-stage PA prediction (Python port)
+│   │   ├── fantasy_calculator.py   # Probabilities → ESPN fantasy points
+│   │   ├── weekly_projection.py    # Full weekly orchestrator
+│   │   ├── fangraphs_enricher.py   # pybaseball wrapper with daily cache
+│   │   └── report.py              # reportlab PDF generation
 │   └── api/                        # FastAPI backend
 │       ├── main.py                 # App entry point, CORS, router registration
 │       ├── deps.py                 # Supabase client singleton
@@ -161,19 +211,31 @@ fantasy-matchup-predictor/
 │           ├── elo.py              # Player ELO endpoints
 │           ├── talent.py           # Talent radar/leaderboard endpoints
 │           ├── matchup.py          # Matchup prediction endpoints
-│           └── fantasy.py          # Team ELO + fantasy endpoints
+│           ├── fantasy.py          # Team ELO + fantasy endpoints
+│           └── export.py           # PDF export endpoint
 ├── scripts/
+│   ├── bulk_load.py                # Fast data loader (psycopg2, ~90s)
 │   ├── daily_elo.py                # CLI for daily player ELO updates
 │   ├── backfill_team_elo.py        # CLI for team ELO backfill
+│   ├── run_daily.py                # Daily pipeline orchestrator (4 steps)
+│   ├── run_weekly.py               # Weekly Fangraphs cache refresh
 │   ├── compute_matchup_constants.py
 │   └── migrations/                 # SQL migrations (001-006)
-├── frontend/                       # React 19 + Vite + Tailwind
-└── tests/
+├── frontend/                       # React 19 + Vite + Tailwind v4
+│   └── src/
+│       ├── pages/                  # 11 pages (Dashboard, Fantasy, Export, etc.)
+│       └── components/
+│           ├── matchup/            # Matchup visualization components
+│           └── fantasy/            # Fantasy-specific components (7)
+├── .github/workflows/
+│   └── daily_update.yml            # GitHub Actions daily automation
+├── .cache/                         # Fangraphs daily cache (gitignored)
+└── tests/                          # pytest test suite (112 tests)
 ```
 
 ---
 
-## Configuration Reference
+## 9. Configuration Reference
 
 ### `config/team_elo_config.yaml`
 
@@ -195,3 +257,4 @@ ESPN H2H Points league scoring weights. See file for full breakdown.
 |----------|----------|-------------|
 | `SUPABASE_URL` | Yes | Supabase project URL |
 | `SUPABASE_KEY` | Yes | Supabase anon/service key |
+| `DATABASE_URL` | For bulk_load | Direct PostgreSQL connection string |

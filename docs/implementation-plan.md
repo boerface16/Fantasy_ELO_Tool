@@ -1,15 +1,13 @@
 # Fantasy Matchup Predictor — Standalone Project Plan
 
-## Status: Phase 0 COMPLETE (2026-03-24)
+## Status: ALL PHASES COMPLETE (2026-03-31)
 
-**What's done:**
-- 84 files copied from mlb-elo-demo-2025-main-GITHUB
-- FastAPI backend skeleton: `src/api/` with 14 endpoints across 3 routers (elo, talent, matchup)
-- Frontend migrated: all API files rewritten to use `apiClient.ts` (no more direct Supabase)
-- Vite proxy configured, `@supabase/supabase-js` removed from frontend
-- Config files: `requirements.txt`, `.gitignore`, `espn_scoring.yaml`, `006_team_elo.sql`
-
-**Next: Phase 1 — Team ELO Engine**
+**All 4 phases implemented:**
+- Phase 0: Project setup, FastAPI skeleton, frontend migration (84 files copied)
+- Phase 1: Team ELO engine, backfill, API endpoints (20 tests)
+- Phase 2: Fantasy backend — 8 modules, 112 tests (roster, schedule, ELO, predictor, calculator, projections, Fangraphs, report)
+- Phase 3: Fantasy frontend — 14 new files (types, API, hooks, 7 components, 4 pages)
+- Phase 4: PDF export, daily pipeline, GitHub Actions automation
 
 ---
 

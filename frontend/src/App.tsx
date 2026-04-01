@@ -11,6 +11,7 @@ import FantasyDashboard from './pages/FantasyDashboard';
 import BatterMatchups from './pages/BatterMatchups';
 import PitcherMatchups from './pages/PitcherMatchups';
 import FantasyMatchupDetail from './pages/FantasyMatchupDetail';
+import ExportPage from './pages/ExportPage';
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ function App() {
             <Route path="/fantasy/batters" element={<BatterMatchups />} />
             <Route path="/fantasy/pitchers" element={<PitcherMatchups />} />
             <Route path="/fantasy/matchup/:batterId/:pitcherId" element={<FantasyMatchupDetail />} />
+            <Route path="/export" element={<ExportPage />} />
             <Route path="/guide" element={<Guide />} />
           </Routes>
         </Layout>

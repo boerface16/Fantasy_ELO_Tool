@@ -1,7 +1,7 @@
 # Fantasy Matchup Predictor — Functional Specification
 
-**Status**: Planning
-**Date**: 2026-03-23
+**Status**: Complete (all 4 phases implemented)
+**Date**: 2026-03-31
 **Based on**: mlb-elo-demo-2025 ELO engine + matchup predictor
 
 ---
@@ -349,7 +349,7 @@ fantasy-matchup/
 
 ```
 pybaseball      # Fangraphs stats + season rates
-weasyprint      # PDF generation (or reportlab as alternative)
+reportlab        # PDF generation
 rapidfuzz       # Fuzzy player name matching
 ```
 

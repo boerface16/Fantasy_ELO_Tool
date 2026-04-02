@@ -10,7 +10,7 @@ import TalentCardSection from '../components/player/TalentCardSection';
 
 type RoleTab = 'BATTING' | 'PITCHING';
 
-function EloCard({ label, elo, delta, paCount }: { label: string; elo: number; delta: number; paCount: number }) {
+function EloCard({ label, elo, delta, paCount, paLabel = 'PA' }: { label: string; elo: number; delta: number; paCount: number; paLabel?: string }) {
   const tier = getEloTier(elo);
   const tierColor = getEloTierColor(tier);
   const DeltaIcon = delta > 0 ? TrendingUp : TrendingDown;
@@ -27,16 +27,16 @@ function EloCard({ label, elo, delta, paCount }: { label: string; elo: number; d
         <DeltaIcon className="w-4 h-4" />
         <span>{deltaSign}{Math.round(delta)}</span>
       </div>
-      <div className="text-xs text-gray-400 mt-1">{paCount} PA</div>
+      <div className="text-xs text-gray-400 mt-1">{paCount} {paLabel}</div>
     </div>
   );
 }
 
-function StatsGrid({ stats }: { stats: { totalPa: number; avgDelta: number; highestElo: { value: number; date: string }; lowestElo: { value: number; date: string }; avgRange: number } }) {
+function StatsGrid({ stats, role }: { stats: { totalPa: number; avgDelta: number; highestElo: { value: number; date: string }; lowestElo: { value: number; date: string }; avgRange: number }; role: 'BATTING' | 'PITCHING' }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
       <div>
-        <div className="text-sm text-gray-400">Total PA</div>
+        <div className="text-sm text-gray-400">{role === 'PITCHING' ? 'Total BF' : 'Total PA'}</div>
         <div className="text-xl font-bold text-gray-100">{stats.totalPa}</div>
       </div>
       <div>
@@ -91,7 +91,7 @@ function RoleSection({ playerId, role }: { playerId: string; role: RoleTab }) {
           <h3 className="text-lg font-semibold text-gray-100 mb-4">
             {role === 'BATTING' ? 'Batting' : 'Pitching'} Statistics
           </h3>
-          <StatsGrid stats={stats} />
+          <StatsGrid stats={stats} role={role} />
         </div>
       )}
     </div>
@@ -198,7 +198,7 @@ export default function PlayerProfile() {
           {isTwoWay ? (
             <div className="flex gap-3">
               <EloCard label="Batting ELO" elo={batting_elo} delta={0} paCount={batting_pa} />
-              <EloCard label="Pitching ELO" elo={pitching_elo} delta={0} paCount={pitching_pa} />
+              <EloCard label="Pitching ELO" elo={pitching_elo} delta={0} paCount={pitching_pa} paLabel="BF" />
             </div>
           ) : (
             <EloCard
@@ -206,6 +206,7 @@ export default function PlayerProfile() {
               elo={displayElo}
               delta={0}
               paCount={displayPa}
+              paLabel={primaryRole === 'PITCHING' ? 'BF' : 'PA'}
             />
           )}
         </div>

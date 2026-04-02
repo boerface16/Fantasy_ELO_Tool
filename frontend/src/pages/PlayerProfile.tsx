@@ -145,15 +145,13 @@ export default function PlayerProfile() {
   const isTwoWay = batting_pa > 0 && pitching_pa > 0;
   const teamColor = getTeamBorderColor(player.team);
 
-  // Determine display role label
-  const positionLabel = isTwoWay
-    ? 'Two-Way Player'
-    : player.position === 'pitcher'
-      ? 'Pitcher'
-      : 'Batter';
+  // Determine primary role — use PA data if available, fall back to position code
+  const isPitcher = pitching_pa > 0
+    ? pitching_pa >= batting_pa
+    : ['SP', 'RP', 'P'].includes(player.position);
 
-  // For non-TWP, determine primary role
-  const primaryRole: RoleTab = player.position === 'pitcher' && !isTwoWay ? 'PITCHING' : 'BATTING';
+  const positionLabel = isTwoWay ? 'Two-Way Player' : isPitcher ? 'Pitcher' : 'Batter';
+  const primaryRole: RoleTab = isPitcher && !isTwoWay ? 'PITCHING' : 'BATTING';
   const displayElo = isTwoWay
     ? (activeRole === 'BATTING' ? batting_elo : pitching_elo)
     : (primaryRole === 'PITCHING' ? pitching_elo : batting_elo);

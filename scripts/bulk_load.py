@@ -5,7 +5,7 @@ and processes ELO/talent in bulk. ~2-3 minutes vs 60+ minutes day-by-day.
 
 Usage:
     python -m scripts.bulk_load
-    python -m scripts.bulk_load --end-date 2026-04-02 #year month day
+    python -m scripts.bulk_load --end-date 2026-03-30 
 """
 
 import argparse
@@ -345,10 +345,13 @@ def _build_season_projections() -> dict[int, tuple[float | None, float | None]]:
 def main():
     parser = argparse.ArgumentParser(description="Fast bulk data loader")
     parser.add_argument("--end-date", type=str, default="2025-09-28")
+    parser.add_argument("--start-date", type=str, default=None,
+                        help="Override start date (YYYY-MM-DD). Defaults to day after last DB record.")
     parser.add_argument("--fresh", action="store_true",
                         help="Recompute all ELO from scratch (loads PAs from DB if they exist)")
     args = parser.parse_args()
     end = date.fromisoformat(args.end_date)
+    force_start = date.fromisoformat(args.start_date) if args.start_date else None
 
     conn = get_db_conn()
     logger.info("Connected to database")
@@ -380,7 +383,7 @@ def main():
             upload_pas_psycopg2(conn, pa_df)
     else:
         # Normal incremental mode
-        resume = get_resume_date(conn)
+        resume = force_start if force_start else get_resume_date(conn)
         if resume > end:
             logger.info(f"Already loaded through {end}. Nothing to do.")
             conn.close()

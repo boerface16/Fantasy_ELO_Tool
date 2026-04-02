@@ -4,6 +4,7 @@ Usage:
     python -m scripts.backfill_team_elo                        # full season
     python -m scripts.backfill_team_elo --date 2026-04-02      # single date (incremental)
     python -m scripts.backfill_team_elo --range 2026-04-01 2026-04-03  # date range
+    python -m scripts.backfill_team_elo --fresh                # wipe + full recompute
 """
 
 import argparse
@@ -59,9 +60,18 @@ def fetch_pa_rows(client, date_filter: str | None = None, date_range: tuple[str,
     return all_rows
 
 
-def run_backfill(target_date: str | None = None, date_range: tuple[str, str] | None = None):
+def run_backfill(target_date: str | None = None, date_range: tuple[str, str] | None = None, fresh: bool = False):
     config = load_config()
     client = get_supabase_client()
+
+    # --fresh: wipe existing team_elo data and recompute everything from scratch
+    if fresh:
+        logger.info("--fresh: deleting all team_elo records...")
+        client.table("team_elo").delete().neq("team_code", "").execute()
+        logger.info("Cleared team_elo table")
+        # Force full recompute regardless of any date filter
+        target_date = None
+        date_range = None
 
     # Fetch PAs
     pa_rows = fetch_pa_rows(client, date_filter=target_date, date_range=date_range)
@@ -143,13 +153,17 @@ def parse_args():
     parser.add_argument("--date", type=str, help="Target date (YYYY-MM-DD)")
     parser.add_argument("--range", nargs=2, metavar=("START", "END"),
                         help="Date range (YYYY-MM-DD YYYY-MM-DD, inclusive)")
+    parser.add_argument("--fresh", action="store_true",
+                        help="Clear all team_elo data and recompute from scratch")
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
 
-    if args.range:
+    if args.fresh:
+        run_backfill(fresh=True)
+    elif args.range:
         run_backfill(date_range=(args.range[0], args.range[1]))
     elif args.date:
         run_backfill(target_date=args.date)

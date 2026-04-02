@@ -51,10 +51,12 @@ export default function TeamEloDetail() {
         lastValueVisible: true,
       });
 
-      const lineData: LineData<Time>[] = history.map(h => ({
-        time: h.date as Time,
-        value: h.eloAfter,
-      }));
+      // Deduplicate by date — keep last game of the day (doubleheaders produce 2 records)
+      const byDate = new Map<string, number>();
+      for (const h of history) byDate.set(h.date, h.eloAfter);
+      const lineData: LineData<Time>[] = Array.from(byDate.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, value]) => ({ time: date as Time, value }));
 
       lineSeries.setData(lineData);
       chart.timeScale().fitContent();

@@ -6,7 +6,6 @@ interface Props {
 }
 
 export default function TeamEloBadge({ teamCode, elo }: Props) {
-  const diff = elo - 1500;
   const isHot = elo > 1530;
   const isCold = elo < 1470;
 

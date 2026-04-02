@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Python 3.11+
+- Python 3.11+ (tested on 3.12 in CI, 3.14 locally)
 - Node.js 20+
 - npm 10+
 - A Supabase project (URL + anon key)
@@ -59,14 +59,27 @@ Run each migration in order against your Supabase SQL Editor:
 ### 3a. Load Statcast Data + Player ELO
 
 ```bash
-# Fast bulk load (~2 minutes for full 2025 season)
-python -m scripts.bulk_load
+# Load full 2025 season (wipes any existing data — always use --fresh first time)
+python -m scripts.bulk_load --end-date 2025-09-28 --fresh
+
+# Load 2026 season from opening day (incremental — does not wipe 2025)
+python -m scripts.bulk_load --start-date 2026-03-18
+
+# Load a specific date range only
+python -m scripts.bulk_load --start-date 2026-04-01 --end-date 2026-04-07
 ```
+
+`--fresh` wipes ELO tables and recomputes from scratch. Use it whenever data looks wrong or you're loading for the first time.
 
 ### 3b. Backfill Team ELO
 
 ```bash
-python -m scripts.backfill_team_elo
+# Full recompute from all plate_appearances (use --fresh after any bulk_load --fresh)
+python -m scripts.backfill_team_elo --fresh
+
+# Incremental: single date or range
+python -m scripts.backfill_team_elo --date 2026-04-01
+python -m scripts.backfill_team_elo --range 2026-04-01 2026-04-07
 ```
 
 ### 3c. Compute Matchup Constants
@@ -145,6 +158,10 @@ python -m pytest tests/ -v
 
 112 tests across 9 test files covering all fantasy modules, team ELO engine, and matchup predictor.
 
+> **Note on Python 3.14**: All dependencies must be installed at once:
+> `python -m pip install -r requirements.txt`
+> Installing packages one-by-one can fail due to missing `psycopg2`, `dotenv`, or other deps.
+
 ---
 
 ## 7. Daily Updates
@@ -160,16 +177,13 @@ The daily pipeline runs automatically at 8am EST via `.github/workflows/daily_up
 python -m scripts.run_daily
 
 # Specific date
-python -m scripts.run_daily --date 2025-09-28
+python -m scripts.run_daily --date 2026-04-01
 
-# Player ELO only
-python -m scripts.daily_elo --date 2025-09-28
+# Team ELO only (incremental)
+python -m scripts.backfill_team_elo --date 2026-04-01
 
-# Team ELO only
-python -m scripts.backfill_team_elo --date 2025-09-28
-
-# Refresh Fangraphs cache
-python -m scripts.run_weekly
+# Team ELO full recompute
+python -m scripts.backfill_team_elo --fresh
 ```
 
 ---

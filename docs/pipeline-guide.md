@@ -25,33 +25,34 @@ This guide explains what you personally need to do, what runs on its own, and wh
 | **Daily** | Today's hottest and coldest players by ELO change |
 | **Leaderboard** | All batters and pitchers ranked by ELO |
 | **Talent** | 9-dimension talent ratings with radar charts |
-| **Team ELO** | All 30 MLB teams ranked by team strength |
+| **Team ELO** | All 30 MLB teams ranked by team strength (click any team for ELO chart + game log) |
 | **Matchup** | Search any batter vs pitcher — see predicted outcome |
-| **Fantasy** | Paste your roster → get weekly projections and fantasy points |
+| **Fantasy** | Your roster is pre-loaded — pick a week and click Project Week |
+| **Export** | Download a PDF report of your weekly projections |
 | **Guide** | Explanation of how the ELO system works |
 
 ### Using the Fantasy tab
 
 1. Go to the **Fantasy** tab
-2. Paste your roster into the text box
-3. Click **Parse Roster**
-4. Select the week you want to project
-5. Click **Project Week**
+2. Your roster is pre-loaded — if your team has changed, paste the new roster and click **Parse Roster**
+3. Select the week you want to project
+4. Click **Project Week**
 
-**Roster format that works** — paste directly in this style:
+**Roster format** — full player names, dash-separated:
 
 ```
-BATTERS
-A. Judge - NYY - (OF)
-F. Freeman - LAD - (1B)
-PITCHERS
-G. Cole - NYY - (SP)
-C. Sale - ATL - (SP)
+Hunter Goodman - Col - (C/DH)
+Aaron Judge - NYY - (OF)
+Zack Wheeler - PHI - (SP)
+Edwin Diaz - NYM - (RP)
 BENCH
-M. Trout - LAA - (OF)
+Mike Trout - LAA - (DH/OF)
 ```
 
-Team names are not case-sensitive (`NYY`, `nyy`, `Nyy` all work). Positions go in parentheses. Section headers (`BATTERS`, `PITCHERS`, `BENCH`) are automatically skipped.
+- Team names are not case-sensitive (`NYY`, `nyy`, `Nyy` all work)
+- Positions go in parentheses — multiple positions separated by `/`
+- Section headers (`BATTERS`, `PITCHERS`, `BENCH`, `IL`) are automatically skipped
+- Your last-used roster is remembered across browser sessions (saved in localStorage)
 
 ---
 
@@ -71,12 +72,20 @@ Open **PowerShell** (search for it in the Start menu), navigate to the project f
 
 ```powershell
 cd C:\Users\Jake\Documents\Python\Baseball\fantasy-matchup-predictor
+
+# Step 1: Load full 2025 season
 C:\python314\python.exe -m scripts.bulk_load --end-date 2025-09-28 --fresh
+
+# Step 2: Load 2026 season from opening day onward
+C:\python314\python.exe -m scripts.bulk_load --start-date 2026-03-18
+
+# Step 3: Rebuild team ELO from scratch
+C:\python314\python.exe -m scripts.backfill_team_elo --fresh
 ```
 
-Change `2025-09-28` to the last day of the season you want to load.
-
-> **The `--fresh` flag** wipes any existing data and starts clean. This is important — running without it on data that already exists can corrupt player charts.
+> **The `--fresh` flag** wipes any existing data and starts clean. Always use it for the 2025 season load — running without it when data already exists can corrupt player charts.
+>
+> **The `--start-date` flag** lets you resume from a specific date without wiping existing data — use this for the 2026 season load so you don't have to re-download 2025.
 
 ### What it does
 
@@ -119,7 +128,7 @@ Every day at **8:00 AM EST**, GitHub automatically runs the daily update. You do
 
 ### How to check if it ran
 
-1. Go to your GitHub repo: https://github.com/boerface16/fantasy-matchup-predictor
+1. Go to your GitHub repo: https://github.com/boerface16/Fantasy_ELO_Tool
 2. Click the **Actions** tab at the top
 3. You'll see a list of recent runs — a green checkmark means it succeeded
 
@@ -179,10 +188,12 @@ The daily update runs at 8am EST. If it's past 9am and data hasn't updated:
 
 ### Player chart starts at 1600 instead of 1500
 
-This means the historical data was loaded twice and got corrupted. Fix it by re-running the bulk load with `--fresh`:
+This means the historical data was loaded twice and got corrupted. Fix it by re-running both loads from scratch:
 
 ```powershell
 C:\python314\python.exe -m scripts.bulk_load --end-date 2025-09-28 --fresh
+C:\python314\python.exe -m scripts.bulk_load --start-date 2026-03-18
+C:\python314\python.exe -m scripts.backfill_team_elo --fresh
 ```
 
 ### Roster not parsing correctly

@@ -17,9 +17,9 @@ A fantasy baseball tool that combines MLB ELO ratings with ESPN H2H points scori
 
 | Metric | Value |
 |--------|-------|
-| Plate appearances | 183,092 |
-| Date range | 2025-03-27 → 2025-09-28 |
-| Players tracked | 1,469 |
+| Plate appearances | 183,092+ (2025 full season + 2026 active) |
+| Date range | 2025-03-27 → present (2026 season live) |
+| Players tracked | 1,469+ |
 | Teams tracked | 30 |
 | Backend tests | 112 passing |
 | Fantasy modules | 8 (roster, schedule, ELO lookup, matchup predictor, calculator, projections, Fangraphs, PDF) |
@@ -65,11 +65,14 @@ cp .env.example .env
 # Apply database migrations (run in Supabase SQL Editor)
 # scripts/migrations/001_create_tables.sql through 006_team_elo.sql
 
-# Load 2025 season data (~2 minutes)
-python -m scripts.bulk_load
+# Load 2025 season data (~5-15 minutes)
+python -m scripts.bulk_load --end-date 2025-09-28 --fresh
 
-# Backfill team ELO
-python -m scripts.backfill_team_elo
+# Load 2026 season data (incremental from opening day)
+python -m scripts.bulk_load --start-date 2026-03-18
+
+# Backfill team ELO from scratch
+python -m scripts.backfill_team_elo --fresh
 
 # Start the API
 uvicorn src.api.main:app --reload
@@ -91,10 +94,13 @@ npm run dev
 python -m scripts.run_daily
 
 # Or update a specific date
-python -m scripts.run_daily --date 2025-09-28
+python -m scripts.run_daily --date 2026-04-01
 
-# Refresh Fangraphs cache only
-python -m scripts.run_weekly
+# Full recompute for player ELO (after data corrections)
+python -m scripts.bulk_load --fresh
+
+# Full recompute for team ELO
+python -m scripts.backfill_team_elo --fresh
 ```
 
 ## Project Structure
@@ -201,8 +207,11 @@ Output: per-PA probabilities for BB, K, OUT, 1B, 2B, 3B, HR + expected wOBA.
 | `/` | Dashboard | Daily hot/cold players, league summary |
 | `/leaderboard` | Leaderboard | Player ELO rankings by position |
 | `/talent-leaderboard` | Talent | 9D talent rankings |
+| `/player/:playerId` | Player Profile | ELO history chart, BF/PA stats, talent cards |
 | `/matchup` | Matchup | Head-to-head batter vs pitcher prediction |
-| `/fantasy` | Fantasy Dashboard | Roster upload → weekly projections |
+| `/team-elo` | Team ELO | All 30 teams ranked by ELO |
+| `/team-elo/:teamCode` | Team Detail | Team ELO chart + game log |
+| `/fantasy` | Fantasy Dashboard | Roster (pre-loaded) → weekly projections |
 | `/fantasy/batters` | Batter Matchups | Full weekly batter grid |
 | `/fantasy/pitchers` | Pitcher Matchups | Pitcher start projections |
 | `/fantasy/matchup/:b/:p` | Matchup Detail | Single matchup deep dive |
@@ -222,7 +231,9 @@ GitHub Actions runs at 8am EST daily (`.github/workflows/daily_update.yml`):
 
 All steps are idempotent (upsert/cache-skip). Manual trigger available via `workflow_dispatch`.
 
-**Setup**: Add `SUPABASE_URL`, `SUPABASE_KEY`, and `DATABASE_URL` to GitHub repo Secrets.
+**Setup**: Add `SUPABASE_URL`, `SUPABASE_KEY`, and `DATABASE_URL` to GitHub repo Secrets (`Settings → Secrets → Actions`).
+
+**Repo**: https://github.com/boerface16/Fantasy_ELO_Tool
 
 ## Roadmap
 

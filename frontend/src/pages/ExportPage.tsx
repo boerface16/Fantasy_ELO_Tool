@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FileDown, Loader2 } from 'lucide-react';
+import { BASE_URL } from '../lib/apiClient';
 
 export default function ExportPage() {
   const [rosterText, setRosterText] = useState(() => {
@@ -26,7 +27,7 @@ export default function ExportPage() {
     setError('');
 
     try {
-      const res = await fetch('/api/fantasy/export/pdf', {
+      const res = await fetch(`${BASE_URL}/api/fantasy/export/pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ roster_text: rosterText, ref_date: refDate }),

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { apiFetch } from '../lib/apiClient';
 import { Loader2, ArrowRight } from 'lucide-react';
 import RosterUpload from '../components/fantasy/RosterUpload';
 import WeekSelector from '../components/fantasy/WeekSelector';
@@ -49,13 +50,10 @@ export default function FantasyDashboard() {
     setIsProjecting(true);
     setError('');
     try {
-      const res = await fetch('/api/fantasy/weekly-projection', {
+      const data = await apiFetch<WeeklyProjection>('/api/fantasy/weekly-projection', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ roster_text: rosterText, ref_date: weekStart }),
       });
-      if (!res.ok) throw new Error(`API error: ${res.status}`);
-      const data = await res.json();
       setProjection(data);
       sessionStorage.setItem('weeklyProjection', JSON.stringify(data));
     } catch (e) {

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Upload, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { apiFetch } from '../../lib/apiClient';
 import type { RosterEntry } from '../../types/fantasy';
 
 interface Props {
@@ -24,13 +25,10 @@ export default function RosterUpload({ onRosterParsed, isLoading }: Props) {
     if (!text.trim()) return;
     setError('');
     try {
-      const res = await fetch('/api/fantasy/roster', {
+      const data = await apiFetch<{ entries: RosterEntry[] }>('/api/fantasy/roster', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ roster_text: text }),
       });
-      if (!res.ok) throw new Error(`API error: ${res.status}`);
-      const data = await res.json();
       setEntries(data.entries);
       onRosterParsed(data.entries, text);
     } catch (e) {

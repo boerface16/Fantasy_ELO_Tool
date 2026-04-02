@@ -50,6 +50,17 @@ def get_db_conn():
     return psycopg2.connect(host=host, port=int(port), user=user, password=password, dbname=dbname)
 
 
+# Known regular-season opening days per year (used when DB is empty in --fresh mode)
+SEASON_STARTS = {
+    2025: date(2025, 3, 27),
+    2026: date(2026, 3, 18),
+}
+
+
+def get_season_start(year: int) -> date:
+    return SEASON_STARTS.get(year, date(year, 3, 20))
+
+
 def get_resume_date(conn) -> date:
     """Find the day after the latest plate_appearances date."""
     cur = conn.cursor()
@@ -59,6 +70,30 @@ def get_resume_date(conn) -> date:
     if result:
         return result + timedelta(days=1)
     return date(2025, 3, 27)  # season start
+
+
+def load_pas_from_db(conn, start: date, end: date) -> pd.DataFrame:
+    """Load plate appearances from DB for a date range (used by --fresh recompute)."""
+    logger.info(f"Loading plate appearances from DB: {start} → {end}")
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT pa_id, game_pk, game_date, batter_id, pitcher_id,
+               result_type, delta_run_exp, xwoba,
+               on_1b, on_2b, on_3b, outs_when_up, home_team, away_team
+        FROM plate_appearances
+        WHERE game_date BETWEEN %s AND %s
+        ORDER BY game_date, pa_id
+    """, (start.isoformat(), end.isoformat()))
+    rows = cur.fetchall()
+    cur.close()
+    cols = [
+        'pa_id', 'game_pk', 'game_date', 'batter_id', 'pitcher_id',
+        'result_type', 'delta_run_exp', 'xwoba',
+        'on_1b', 'on_2b', 'on_3b', 'outs_when_up', 'home_team', 'away_team',
+    ]
+    df = pd.DataFrame(rows, columns=cols)
+    logger.info(f"  Loaded {len(df):,} plate appearances from DB")
+    return df
 
 
 def fetch_monthly_chunks(start: date, end: date) -> pd.DataFrame:
@@ -311,52 +346,78 @@ def main():
     parser = argparse.ArgumentParser(description="Fast bulk data loader")
     parser.add_argument("--end-date", type=str, default="2025-09-28")
     parser.add_argument("--fresh", action="store_true",
-                        help="Ignore existing ELO states; start all players at 1500")
+                        help="Recompute all ELO from scratch (loads PAs from DB if they exist)")
     args = parser.parse_args()
     end = date.fromisoformat(args.end_date)
 
     conn = get_db_conn()
     logger.info("Connected to database")
 
-    # 1. Determine resume point
-    resume = get_resume_date(conn)
-    if resume > end:
-        logger.info(f"Already loaded through {end}. Nothing to do.")
+    if args.fresh:
+        # Check if PAs already exist in DB for this date range
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM plate_appearances WHERE game_date <= %s", (end,))
+        existing_pa_count = cur.fetchone()[0]
+        cur.close()
+
+        if existing_pa_count > 0:
+            # PAs already in DB — skip Statcast fetch, recompute ELO from existing data
+            logger.info(f"Fresh mode: found {existing_pa_count:,} existing PAs — recomputing ELO from DB")
+            season_start = get_season_start(end.year)
+            pa_df = load_pas_from_db(conn, season_start, end)
+        else:
+            # DB is empty — fetch from Statcast normally
+            logger.info("Fresh mode: DB empty — fetching from Statcast")
+            season_start = get_season_start(end.year)
+            raw_df = fetch_monthly_chunks(season_start, end)
+            if raw_df.empty:
+                logger.info("No Statcast data fetched")
+                conn.close()
+                return
+            pa_df = convert_statcast_to_pa(raw_df)
+            register_players_psycopg2(conn, pa_df)
+            logger.info("Uploading plate appearances...")
+            upload_pas_psycopg2(conn, pa_df)
+    else:
+        # Normal incremental mode
+        resume = get_resume_date(conn)
+        if resume > end:
+            logger.info(f"Already loaded through {end}. Nothing to do.")
+            conn.close()
+            return
+        logger.info(f"Resuming from {resume} through {end}")
+
+        raw_df = fetch_monthly_chunks(resume, end)
+        if raw_df.empty:
+            logger.info("No Statcast data fetched")
+            conn.close()
+            return
+        logger.info(f"Total pitches fetched: {len(raw_df):,}")
+
+        logger.info("Converting pitches to plate appearances...")
+        pa_df = convert_statcast_to_pa(raw_df)
+        logger.info(f"Total PAs: {len(pa_df):,}")
+
+        register_players_psycopg2(conn, pa_df)
+        logger.info("Uploading plate appearances...")
+        upload_pas_psycopg2(conn, pa_df)
+
+    if pa_df.empty:
+        logger.info("No plate appearances to process")
         conn.close()
         return
-    logger.info(f"Resuming from {resume} through {end}")
 
-    # 2. Fetch Statcast in monthly chunks
-    raw_df = fetch_monthly_chunks(resume, end)
-    if raw_df.empty:
-        logger.info("No Statcast data fetched")
-        conn.close()
-        return
-    logger.info(f"Total pitches fetched: {len(raw_df):,}")
+    logger.info(f"Processing {len(pa_df):,} plate appearances")
 
-    # 3. Convert to PAs
-    logger.info("Converting pitches to plate appearances...")
-    pa_df = convert_statcast_to_pa(raw_df)
-    logger.info(f"Total PAs: {len(pa_df):,}")
-
-    # 4. Register new players
-    register_players_psycopg2(conn, pa_df)
-
-    # 5. Upload PAs
-    logger.info("Uploading plate appearances...")
-    upload_pas_psycopg2(conn, pa_df)
-
-    # 6. Run ELO engine
+    # ELO engine
     sb_client = get_supabase_client()
 
     if args.fresh:
-        logger.info("Fresh mode: all players starting at ELO 1500")
         initial_states = {}
     else:
         logger.info("Loading prior ELO states...")
         initial_states = load_current_elo_states(sb_client)
 
-    # Fetch projections for season boundary resets
     logger.info("Fetching season projections for ELO resets...")
     season_projections = _build_season_projections()
 
@@ -371,7 +432,7 @@ def main():
     batch.process(pa_df)
     logger.info(f"  {len(pa_df):,} PAs processed, {len(batch.daily_ohlc)} OHLC records")
 
-    # 7. Upload ELO results
+    # Clear stale ELO data before uploading fresh results
     if args.fresh:
         logger.info("Fresh mode: clearing existing ELO data...")
         cur = conn.cursor()
@@ -385,20 +446,19 @@ def main():
     logger.info("Uploading daily_ohlc...")
     upload_daily_ohlc_psycopg2(conn, batch.daily_ohlc)
 
-    # 8. Run talent engine
+    # Talent engine
     if args.fresh:
-        logger.info("Fresh mode: all talent states starting fresh")
         initial_batters, initial_pitchers = {}, {}
     else:
         logger.info("Loading prior talent states...")
         initial_batters, initial_pitchers = load_current_talent_states(sb_client)
+
     talent_batch = TalentBatch(initial_batters=initial_batters, initial_pitchers=initial_pitchers)
 
     logger.info("Running talent ELO calculation...")
     talent_batch.process(pa_df)
     logger.info(f"  {len(talent_batch.talent_daily_ohlc)} talent OHLC records")
 
-    # 9. Upload talent results
     if args.fresh:
         logger.info("Fresh mode: clearing existing talent data...")
         cur = conn.cursor()

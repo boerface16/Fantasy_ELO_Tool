@@ -72,7 +72,12 @@ class TeamEloEngine:
         return log(abs(run_diff) + 1)
 
     def _season_reset(self, new_season: int) -> None:
-        """FiveThirtyEight-style reset: 67% projection + 33% regressed prior."""
+        """FiveThirtyEight-style reset: 67% projection + 33% regressed prior.
+
+        Re-centers ratings after blending so the system stays zero-sum.
+        Projected wins from external sources rarely sum to exactly 30×81,
+        so without re-centering each reset injects net ELO into the system.
+        """
         for team in self.ratings:
             # Regress prior season final rating 1/3 toward mean
             regressed = self.ratings[team] + self.regression * (
@@ -89,6 +94,14 @@ class TeamEloEngine:
             else:
                 # Fallback: simple regression (old behavior)
                 self.ratings[team] = regressed
+
+        # Re-center so ratings remain zero-sum (mean = initial_elo)
+        n = len(self.ratings)
+        if n:
+            mean_drift = sum(self.ratings.values()) / n - self.initial_elo
+            for team in self.ratings:
+                self.ratings[team] -= mean_drift
+
         self._current_season = new_season
 
     def process_game(self, game: GameResult) -> tuple[TeamEloRecord, TeamEloRecord]:

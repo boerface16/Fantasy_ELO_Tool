@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiFetch } from '../lib/apiClient';
 import { Loader2, ArrowRight } from 'lucide-react';
-import RosterUpload from '../components/fantasy/RosterUpload';
+import RosterUpload, { DEFAULT_ROSTER } from '../components/fantasy/RosterUpload';
 import WeekSelector from '../components/fantasy/WeekSelector';
 import FantasyPointsPanel from '../components/fantasy/FantasyPointsPanel';
 import WeeklyGrid from '../components/fantasy/WeeklyGrid';
@@ -33,7 +33,7 @@ export default function FantasyDashboard() {
   const today = new Date();
   const monday = getMonday(today);
   const [weekStart, setWeekStart] = useState(monday.toISOString().split('T')[0]);
-  const [rosterText, setRosterText] = useState('');
+  const [rosterText, setRosterText] = useState(() => localStorage.getItem('rosterText') ?? DEFAULT_ROSTER);
   const [projection, setProjection] = useState<WeeklyProjection | null>(null);
   const [isProjecting, setIsProjecting] = useState(false);
   const [error, setError] = useState('');

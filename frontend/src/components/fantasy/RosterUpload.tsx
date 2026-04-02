@@ -8,16 +8,35 @@ interface Props {
   isLoading?: boolean;
 }
 
-const PLACEHOLDER = `Paste your ESPN roster here, e.g.:
-
-C\tSalvador Perez, KC C
-1B\tVladimir Guerrero Jr., TOR 1B
-SS\tTrea Turner, PHI SS
-OF\tAaron Judge, NYY OF
-SP\tZack Wheeler, PHI SP`;
+export const DEFAULT_ROSTER = `Hunter Goodman - Col - (C/DH)
+Luis Arraez - SF - (1B/DH)
+Jazz Chisholm Jr - NYY - (2B/3B)
+Yoán Moncada - LAA - (3B)
+Colson Montgomery - CWS - (SS)
+Matt McLain - Cin - (2B)
+Alec Burleson - StL - (OF/1B/DH)
+Bryan Reynolds - Pit - (OF/DH)
+Steven Kwan - Cle - (OF)
+Luis Robert Jr - NYM - (OF)
+Yordan Alvarez - Hou - (DH/OF)
+Oneil Cruz - Pit - (OF)
+Christian Yelich - Mil - (DH)
+Tyler Glasnow - LAD - (SP)
+David Peterson - NYM - (SP)
+Bubba Chandler - Pit - (SP)
+Max Fried - NYY - (SP)
+David Bednar - NYY - (RP)
+Brandon Woodruff - Mil - (SP)
+Michael King - SD - (SP)
+Jeff Hoffman - TOR - (RP)
+Shane Baz - Bal - (SP)
+Mike Trout - LAA - (DH/OF)
+Reid Detmers - LAA - (RP)
+Shane Bieber - TOR - (SP)
+Robert Garcia - Tex - (RP)`;
 
 export default function RosterUpload({ onRosterParsed, isLoading }: Props) {
-  const [text, setText] = useState('');
+  const [text, setText] = useState(() => localStorage.getItem('rosterText') ?? DEFAULT_ROSTER);
   const [entries, setEntries] = useState<RosterEntry[] | null>(null);
   const [error, setError] = useState('');
 
@@ -30,6 +49,7 @@ export default function RosterUpload({ onRosterParsed, isLoading }: Props) {
         body: JSON.stringify({ roster_text: text }),
       });
       setEntries(data.entries);
+      localStorage.setItem('rosterText', text);
       onRosterParsed(data.entries, text);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to parse roster');
@@ -47,7 +67,6 @@ export default function RosterUpload({ onRosterParsed, isLoading }: Props) {
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder={PLACEHOLDER}
           rows={8}
           className="w-full rounded-lg border border-border-line p-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-y"
         />

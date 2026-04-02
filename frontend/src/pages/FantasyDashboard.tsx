@@ -70,7 +70,7 @@ export default function FantasyDashboard() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">Fantasy Matchup Predictor</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-gray-400 mt-1">
           Paste your ESPN roster, pick a week, and get ELO-powered projections
         </p>
       </div>
@@ -111,7 +111,7 @@ export default function FantasyDashboard() {
           />
 
           {/* Batter Grid */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <div className="bg-bg-card rounded-xl border border-border-line shadow-sm p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">Batter Matchups</h2>
               <Link to="/fantasy/batters" className="text-sm text-primary flex items-center gap-1 hover:underline">
@@ -122,7 +122,7 @@ export default function FantasyDashboard() {
           </div>
 
           {/* Pitcher Grid */}
-          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <div className="bg-bg-card rounded-xl border border-border-line shadow-sm p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">Pitcher Starts</h2>
               <Link to="/fantasy/pitchers" className="text-sm text-primary flex items-center gap-1 hover:underline">
@@ -136,7 +136,7 @@ export default function FantasyDashboard() {
 
       {/* Team ELO Rankings */}
       {teamElos && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <div className="bg-bg-card rounded-xl border border-border-line shadow-sm p-5">
           <h2 className="text-lg font-bold mb-4">Team ELO Rankings</h2>
           <div className="flex flex-wrap gap-2">
             {teamElos.map((t) => (

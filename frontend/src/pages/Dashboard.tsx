@@ -25,7 +25,7 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h2 className="text-3xl font-extrabold tracking-tight">Daily Performance</h2>
-          <p className="text-gray-500 mt-1">
+          <p className="text-gray-400 mt-1">
             Player ELO fluctuations for the selected date.
             <span className="ml-2 text-xs font-medium px-2 py-0.5 rounded bg-primary/10 text-primary">
               {seasonMeta?.year ?? ''} Season

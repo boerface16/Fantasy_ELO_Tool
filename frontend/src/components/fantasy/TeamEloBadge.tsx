@@ -10,10 +10,10 @@ export default function TeamEloBadge({ teamCode, elo }: Props) {
   const isCold = elo < 1470;
 
   const colorClass = isHot
-    ? 'bg-green-50 text-green-700 border-green-200'
+    ? 'bg-green-900/30 text-green-400 border-green-800'
     : isCold
-      ? 'bg-red-50 text-red-700 border-red-200'
-      : 'bg-gray-50 text-gray-600 border-gray-200';
+      ? 'bg-red-900/30 text-red-400 border-red-800'
+      : 'bg-white/5 text-gray-400 border-border-line';
 
   const Icon = isHot ? TrendingUp : isCold ? TrendingDown : Minus;
 

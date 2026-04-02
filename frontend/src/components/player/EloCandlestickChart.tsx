@@ -82,18 +82,18 @@ export default function EloCandlestickChart({ data, height = 400 }: EloCandlesti
         width: chartContainerRef.current.clientWidth || 600,
         height,
         layout: {
-          background: { color: '#FFFFFF' },
-          textColor: '#6B7280',
+          background: { color: '#1E293B' },
+          textColor: '#9CA3AF',
         },
         grid: {
-          vertLines: { color: '#E5E7EB' },
-          horzLines: { color: '#E5E7EB' },
+          vertLines: { color: '#334155' },
+          horzLines: { color: '#334155' },
         },
         timeScale: {
-          borderColor: '#E5E7EB',
+          borderColor: '#334155',
         },
         rightPriceScale: {
-          borderColor: '#E5E7EB',
+          borderColor: '#334155',
         },
       });
 
@@ -165,7 +165,7 @@ export default function EloCandlestickChart({ data, height = 400 }: EloCandlesti
 
   if (data.length === 0) {
     return (
-      <div className="h-[400px] flex items-center justify-center text-gray-500">
+      <div className="h-[400px] flex items-center justify-center text-gray-400">
         No data available
       </div>
     );
@@ -179,8 +179,8 @@ export default function EloCandlestickChart({ data, height = 400 }: EloCandlesti
           onClick={() => setShowOHLC(!showOHLC)}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
             showOHLC
-              ? 'bg-green-100 text-green-700 ring-1 ring-green-300'
-              : 'bg-gray-100 text-gray-500'
+              ? 'bg-green-900/30 text-green-400 ring-1 ring-green-300'
+              : 'bg-white/10 text-gray-400'
           }`}
         >
           <span className="w-3 h-3 border-2 border-green-500 rounded-sm"></span>
@@ -190,8 +190,8 @@ export default function EloCandlestickChart({ data, height = 400 }: EloCandlesti
           onClick={() => setShowMA5(!showMA5)}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
             showMA5
-              ? 'bg-orange-100 text-orange-700 ring-1 ring-orange-300'
-              : 'bg-gray-100 text-gray-500'
+              ? 'bg-orange-900/30 text-orange-400 ring-1 ring-orange-300'
+              : 'bg-white/10 text-gray-400'
           }`}
         >
           <span className="w-3 h-0.5 bg-orange-500 rounded"></span>
@@ -201,8 +201,8 @@ export default function EloCandlestickChart({ data, height = 400 }: EloCandlesti
           onClick={() => setShowMA15(!showMA15)}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
             showMA15
-              ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300'
-              : 'bg-gray-100 text-gray-500'
+              ? 'bg-blue-900/30 text-blue-400 ring-1 ring-blue-300'
+              : 'bg-white/10 text-gray-400'
           }`}
         >
           <span className="w-3 h-0.5 bg-blue-500 rounded"></span>

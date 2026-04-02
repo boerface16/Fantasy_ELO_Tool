@@ -37,7 +37,7 @@ export default function BatterMatchups() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold">Batter Matchups</h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-400">
             {projection.weekStart} — {projection.weekEnd}
           </p>
         </div>
@@ -50,7 +50,7 @@ export default function BatterMatchups() {
         weekLabel="Batter Points"
       />
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <div className="bg-bg-card rounded-xl border border-border-line shadow-sm p-5">
         <WeeklyGrid batters={projection.batters} weekStart={projection.weekStart} />
       </div>
     </div>

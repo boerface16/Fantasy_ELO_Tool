@@ -4,6 +4,7 @@ pybaseball>=2.2
 supabase>=2.0
 python-dotenv>=1.0
 requests>=2.31
+beautifulsoup4>=4.12
 pytest>=8.0
 PyYAML>=6.0
 

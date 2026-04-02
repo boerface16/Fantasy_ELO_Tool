@@ -53,7 +53,7 @@ export default function Leaderboard() {
             className={`px-6 py-2 rounded-lg font-semibold transition-all ${
               position === tab
                 ? 'bg-primary text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                : 'bg-white/10 text-gray-400 hover:bg-white/15'
             }`}
           >
             {tab === 'pitcher' ? 'Pitcher' : 'Batter'}
@@ -74,7 +74,7 @@ export default function Leaderboard() {
         <button
           onClick={() => setPage(1)}
           disabled={page === 1}
-          className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="p-2 rounded-lg hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
           title="First page"
         >
           <ChevronFirst className="w-5 h-5" />
@@ -83,7 +83,7 @@ export default function Leaderboard() {
         <button
           onClick={() => setPage(p => Math.max(1, p - 1))}
           disabled={page === 1}
-          className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="p-2 rounded-lg hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
           title="Previous page"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -100,7 +100,7 @@ export default function Leaderboard() {
               className={`min-w-[40px] h-10 rounded-lg font-semibold transition-all ${
                 p === page
                   ? 'bg-primary text-white'
-                  : 'hover:bg-gray-100 text-gray-700'
+                  : 'hover:bg-white/10 text-gray-300'
               }`}
             >
               {p}
@@ -114,7 +114,7 @@ export default function Leaderboard() {
         <button
           onClick={() => setPage(p => p + 1)}
           disabled={isLastPage}
-          className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="p-2 rounded-lg hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
           title="Next page"
         >
           <ChevronRight className="w-5 h-5" />
@@ -123,7 +123,7 @@ export default function Leaderboard() {
         <button
           onClick={() => setPage(totalPages)}
           disabled={isLastPage || page === totalPages}
-          className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="p-2 rounded-lg hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
           title="Last page"
         >
           <ChevronLast className="w-5 h-5" />

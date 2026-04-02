@@ -8,20 +8,20 @@ function Accordion({ title, children, defaultOpen = false }: { title: string; ch
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
+    <div className="border border-border-line rounded-lg overflow-hidden">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-5 py-4 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+        className="w-full flex items-center justify-between px-5 py-4 bg-white/5 hover:bg-white/10 transition-colors text-left"
       >
-        <span className="font-semibold text-gray-900">{title}</span>
+        <span className="font-semibold text-gray-100">{title}</span>
         {isOpen ? (
-          <ChevronUp className="w-5 h-5 text-gray-500" />
+          <ChevronUp className="w-5 h-5 text-gray-400" />
         ) : (
-          <ChevronDown className="w-5 h-5 text-gray-500" />
+          <ChevronDown className="w-5 h-5 text-gray-400" />
         )}
       </button>
       {isOpen && (
-        <div className="px-5 py-4 space-y-3 text-gray-700 leading-relaxed">
+        <div className="px-5 py-4 space-y-3 text-gray-300 leading-relaxed">
           {children}
         </div>
       )}
@@ -31,10 +31,10 @@ function Accordion({ title, children, defaultOpen = false }: { title: string; ch
 
 function OverviewTab() {
   return (
-    <div className="space-y-6 text-gray-700 leading-relaxed">
+    <div className="space-y-6 text-gray-300 leading-relaxed">
       {/* Abstract */}
       <section>
-        <h3 className="text-xl font-bold text-gray-900 mb-3">Abstract</h3>
+        <h3 className="text-xl font-bold text-gray-100 mb-3">Abstract</h3>
         <p>
           Traditional baseball statistics evaluate players in isolation. Batting average, ERA, and OPS
           measure outcomes but ignore context: who was pitching, what was the base-out state, and how
@@ -56,28 +56,28 @@ function OverviewTab() {
 
       {/* Methodology */}
       <section>
-        <h3 className="text-xl font-bold text-gray-900 mb-3">Methodology</h3>
-        <p className="font-semibold text-gray-900">ELO Formula (V5.3 Zero-Sum)</p>
+        <h3 className="text-xl font-bold text-gray-100 mb-3">Methodology</h3>
+        <p className="font-semibold text-gray-100">ELO Formula (V5.3 Zero-Sum)</p>
         <p className="mt-1">Every player starts at <strong>1,500</strong> (league average). After each plate appearance:</p>
-        <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm space-y-1 mt-2">
-          <p className="text-gray-500"># Step 1: Park factor adjustment</p>
+        <div className="bg-white/5 rounded-lg p-4 font-mono text-sm space-y-1 mt-2">
+          <p className="text-gray-400"># Step 1: Park factor adjustment</p>
           <p>adjusted_rv = delta_run_exp - (park_factor - 1.0) × 0.1</p>
-          <p className="text-gray-500 mt-2"># Step 2: State normalization</p>
+          <p className="text-gray-400 mt-2"># Step 2: State normalization</p>
           <p>rv_diff = adjusted_rv - mean_rv[base_out_state]</p>
-          <p className="text-gray-500 mt-2"># Step 3: Zero-sum ELO update</p>
+          <p className="text-gray-400 mt-2"># Step 3: Zero-sum ELO update</p>
           <p>batter_delta  = K × rv_diff</p>
           <p>pitcher_delta = -batter_delta</p>
         </div>
         <div className="overflow-x-auto mt-3">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-border-line">
                 <th className="px-3 py-2 text-left font-semibold">Parameter</th>
                 <th className="px-3 py-2 text-left font-semibold">Value</th>
                 <th className="px-3 py-2 text-left font-semibold">Description</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-line">
               <tr>
                 <td className="px-3 py-2 font-mono">K_FACTOR</td>
                 <td className="px-3 py-2">12.0</td>
@@ -105,14 +105,14 @@ function OverviewTab() {
 
       {/* Data Source */}
       <section>
-        <h3 className="text-xl font-bold text-gray-900 mb-3">Data Source</h3>
+        <h3 className="text-xl font-bold text-gray-100 mb-3">Data Source</h3>
         <ul className="list-disc pl-5 space-y-1">
           <li><strong>MLB Statcast</strong> via Baseball Savant</li>
           <li><strong>711,897 pitches</strong> aggregated into <strong>183,092 plate appearances</strong></li>
           <li><strong>2,428 games</strong> across the current season</li>
           <li><strong>1,469 players</strong> (batters and pitchers)</li>
         </ul>
-        <p className="mt-3 font-semibold text-gray-900">Key Metric: delta_run_exp</p>
+        <p className="mt-3 font-semibold text-gray-100">Key Metric: delta_run_exp</p>
         <p className="mt-1">
           The core input is <strong>delta run expectancy</strong> — how much a plate appearance outcome
           changed the expected runs scored in that inning.
@@ -120,13 +120,13 @@ function OverviewTab() {
         <div className="overflow-x-auto mt-2">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-border-line">
                 <th className="px-3 py-2 text-left font-semibold">Outcome</th>
                 <th className="px-3 py-2 text-left font-semibold">Typical delta_run_exp</th>
                 <th className="px-3 py-2 text-left font-semibold">ELO Impact (K=12)</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-line">
               <tr>
                 <td className="px-3 py-2">Home run</td>
                 <td className="px-3 py-2">+1.4</td>
@@ -154,26 +154,26 @@ function OverviewTab() {
 
       {/* State Normalization & Park Factor */}
       <section>
-        <h3 className="text-xl font-bold text-gray-900 mb-3">Adjustments</h3>
-        <p className="font-semibold text-gray-900">State Normalization</p>
+        <h3 className="text-xl font-bold text-gray-100 mb-3">Adjustments</h3>
+        <p className="font-semibold text-gray-100">State Normalization</p>
         <p className="mt-1">
           The 24 base-out states (8 base configurations × 3 out counts) each have different average run values.
           A hit with runners in scoring position carries higher raw delta_run_exp than with bases empty —
           but it's also the <em>expected</em> outcome in that situation. We subtract the mean delta_run_exp
           for each state so ELO only rewards performance <em>above</em> the situational average.
         </p>
-        <p className="font-semibold text-gray-900 mt-4">Park Factor</p>
+        <p className="font-semibold text-gray-100 mt-4">Park Factor</p>
         <p className="mt-1">MLB's 30 stadiums have different scoring environments:</p>
         <div className="overflow-x-auto mt-2">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-border-line">
                 <th className="px-3 py-2 text-left font-semibold">Stadium</th>
                 <th className="px-3 py-2 text-left font-semibold">Park Factor</th>
                 <th className="px-3 py-2 text-left font-semibold">Effect</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-line">
               <tr>
                 <td className="px-3 py-2">Coors Field (COL)</td>
                 <td className="px-3 py-2">1.13</td>
@@ -192,24 +192,24 @@ function OverviewTab() {
             </tbody>
           </table>
         </div>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-sm text-gray-400">
           Over a season of ~250 home PAs, park factor shifts ELO by ±40 points for extreme parks.
         </p>
       </section>
 
       {/* ELO Tiers */}
       <section>
-        <h3 className="text-xl font-bold text-gray-900 mb-3">ELO Tiers</h3>
+        <h3 className="text-xl font-bold text-gray-100 mb-3">ELO Tiers</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-border-line">
                 <th className="px-3 py-2 text-left font-semibold">Tier</th>
                 <th className="px-3 py-2 text-left font-semibold">ELO Range</th>
                 <th className="px-3 py-2 text-left font-semibold">Description</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-line">
               <tr>
                 <td className="px-3 py-2 font-bold text-elo-elite">Elite</td>
                 <td className="px-3 py-2">1,800+</td>
@@ -252,7 +252,7 @@ function OverviewTab() {
 
       {/* Two-Way Players */}
       <section>
-        <h3 className="text-xl font-bold text-gray-900 mb-3">Two-Way Players</h3>
+        <h3 className="text-xl font-bold text-gray-100 mb-3">Two-Way Players</h3>
         <p>
           Players who both bat and pitch — such as <strong>Shohei Ohtani</strong> — present
           a unique challenge. A single ELO number blends two fundamentally different skill sets,
@@ -277,12 +277,12 @@ function OverviewTab() {
         <div className="overflow-x-auto mt-3">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-border-line">
                 <th className="px-3 py-2 text-left font-semibold">Field</th>
                 <th className="px-3 py-2 text-left font-semibold">Description</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-line">
               <tr>
                 <td className="px-3 py-2 font-mono">batting_elo</td>
                 <td className="px-3 py-2">ELO earned exclusively from plate appearances as a batter</td>
@@ -302,10 +302,10 @@ function OverviewTab() {
 
       {/* Architecture */}
       <section>
-        <h3 className="text-xl font-bold text-gray-900 mb-3">System Architecture</h3>
-        <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm overflow-x-auto">
+        <h3 className="text-xl font-bold text-gray-100 mb-3">System Architecture</h3>
+        <div className="bg-white/5 rounded-lg p-4 font-mono text-sm overflow-x-auto">
           <p>[Statcast Parquet] → ETL → [Supabase plate_appearances] → ELO Engine → [player_elo / daily_ohlc]</p>
-          <p className="ml-56 text-gray-500">↑ RE24 Baseline + Park Factors</p>
+          <p className="ml-56 text-gray-400">↑ RE24 Baseline + Park Factors</p>
         </div>
         <ol className="list-decimal pl-5 space-y-1 mt-3">
           <li><strong>Raw Data</strong> — Statcast pitch-level parquet (711K rows, 118 columns)</li>
@@ -318,17 +318,17 @@ function OverviewTab() {
 
       {/* Database */}
       <section>
-        <h3 className="text-xl font-bold text-gray-900 mb-3">Database</h3>
+        <h3 className="text-xl font-bold text-gray-100 mb-3">Database</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-border-line">
                 <th className="px-3 py-2 text-left font-semibold">Table</th>
                 <th className="px-3 py-2 text-left font-semibold">Rows</th>
                 <th className="px-3 py-2 text-left font-semibold">Description</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-line">
               <tr>
                 <td className="px-3 py-2 font-mono">players</td>
                 <td className="px-3 py-2">1,469</td>
@@ -361,10 +361,10 @@ function OverviewTab() {
 
       {/* Tech Stack */}
       <section>
-        <h3 className="text-xl font-bold text-gray-900 mb-3">Tech Stack</h3>
+        <h3 className="text-xl font-bold text-gray-100 mb-3">Tech Stack</h3>
         <div className="grid md:grid-cols-2 gap-4">
           <div>
-            <p className="font-semibold text-gray-900 mb-2">Engine (Python)</p>
+            <p className="font-semibold text-gray-100 mb-2">Engine (Python)</p>
             <ul className="list-disc pl-5 space-y-1 text-sm">
               <li>pandas — data processing</li>
               <li>Supabase Python SDK — database I/O</li>
@@ -372,7 +372,7 @@ function OverviewTab() {
             </ul>
           </div>
           <div>
-            <p className="font-semibold text-gray-900 mb-2">Frontend (TypeScript)</p>
+            <p className="font-semibold text-gray-100 mb-2">Frontend (TypeScript)</p>
             <ul className="list-disc pl-5 space-y-1 text-sm">
               <li>Vite + React + TypeScript</li>
               <li>Tailwind CSS</li>
@@ -385,7 +385,7 @@ function OverviewTab() {
       </section>
 
       {/* Disclaimer */}
-      <section className="text-sm text-gray-500 border-t border-gray-200 pt-4">
+      <section className="text-sm text-gray-400 border-t border-border-line pt-4">
         <p>
           This project is for demonstration and analytical purposes. ELO ratings represent one approach
           to player evaluation and do not capture defense, baserunning, or game context beyond run expectancy.
@@ -424,7 +424,7 @@ function GeneralTab() {
           For every plate appearance, the ELO points gained by one side are exactly
           equal to the points lost by the other:
         </p>
-        <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm space-y-1">
+        <div className="bg-white/5 rounded-lg p-4 font-mono text-sm space-y-1">
           <p>adjusted_rv  = delta_run_exp − park_adjustment</p>
           <p>rv_diff      = adjusted_rv − expected_rv[state]</p>
           <p>batter_delta = K × rv_diff</p>
@@ -469,13 +469,13 @@ function GeneralTab() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-border-line">
                 <th className="px-3 py-2 text-left font-semibold">Tier</th>
                 <th className="px-3 py-2 text-left font-semibold">ELO Range</th>
                 <th className="px-3 py-2 text-left font-semibold">Description</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-line">
               <tr>
                 <td className="px-3 py-2 font-bold text-elo-elite">Elite</td>
                 <td className="px-3 py-2">1,800+</td>
@@ -541,27 +541,27 @@ function GeneralTab() {
           is a structural consequence of the zero-sum system combined with the player pool sizes
           in MLB.
         </p>
-        <p className="font-semibold text-gray-900 mt-3">The Math</p>
+        <p className="font-semibold text-gray-100 mt-3">The Math</p>
         <p className="mt-1">
           In a zero-sum system, the total ELO gained by all batters equals the total ELO
           lost by all pitchers:
         </p>
-        <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm space-y-1 mt-2">
+        <div className="bg-white/5 rounded-lg p-4 font-mono text-sm space-y-1 mt-2">
           <p>&Sigma; (batting_elo &minus; 1500) + &Sigma; (pitching_elo &minus; 1500) = 0</p>
         </div>
         <p className="mt-2">
           Verified from 2025 season data:
         </p>
-        <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm space-y-1 mt-2">
+        <div className="bg-white/5 rounded-lg p-4 font-mono text-sm space-y-1 mt-2">
           <p>Batter pool:  673 players &times; (+107.3 avg) = <strong>+72,232</strong> total ELO gained</p>
           <p>Pitcher pool: 873 players &times; (&minus;82.7 avg) = <strong>&minus;72,232</strong> total ELO lost</p>
-          <p className="text-gray-500 mt-1">Net = 0.0 (zero-sum verified)</p>
+          <p className="text-gray-400 mt-1">Net = 0.0 (zero-sum verified)</p>
         </div>
         <p className="mt-3">
           The same total ELO transfer (+72,232 points) is shared among a <strong>different
           number of players</strong> on each side:
         </p>
-        <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm space-y-1 mt-2">
+        <div className="bg-white/5 rounded-lg p-4 font-mono text-sm space-y-1 mt-2">
           <p>Avg batter gain  = +72,232 / 673 = <strong>+107.3</strong> per batter</p>
           <p>Avg pitcher loss = &minus;72,232 / 873 = <strong>&minus;82.7</strong> per pitcher</p>
         </div>
@@ -573,7 +573,7 @@ function GeneralTab() {
         <div className="overflow-x-auto mt-3">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-border-line">
                 <th className="px-3 py-2 text-left font-semibold">Pool</th>
                 <th className="px-3 py-2 text-left font-semibold">Players</th>
                 <th className="px-3 py-2 text-left font-semibold">Mean ELO</th>
@@ -581,7 +581,7 @@ function GeneralTab() {
                 <th className="px-3 py-2 text-left font-semibold">Max</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-line">
               <tr>
                 <td className="px-3 py-2 font-semibold">Batters</td>
                 <td className="px-3 py-2">673</td>
@@ -599,7 +599,7 @@ function GeneralTab() {
             </tbody>
           </table>
         </div>
-        <p className="font-semibold text-gray-900 mt-4">Why More Pitchers?</p>
+        <p className="font-semibold text-gray-100 mt-4">Why More Pitchers?</p>
         <p className="mt-1">
           MLB rosters carry 13 pitchers (5 starters + 8 relievers) versus 13 position players,
           but the total number of <strong>unique pitchers used across a season</strong> far exceeds
@@ -626,7 +626,7 @@ function GeneralTab() {
           roster spots more stably, accumulating PAs that let skill differentiation compound in
           the ELO.
         </p>
-        <p className="font-semibold text-gray-900 mt-4">Key Takeaway</p>
+        <p className="font-semibold text-gray-100 mt-4">Key Takeaway</p>
         <p className="mt-1">
           When comparing players across roles, <strong>use role-relative rankings</strong> (percentile
           within batters or within pitchers) rather than raw ELO values. A pitcher at 1,620 ELO is
@@ -731,14 +731,14 @@ function TalentTab() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-border-line">
                 <th className="px-3 py-2 text-left font-semibold">Dimension</th>
                 <th className="px-3 py-2 text-left font-semibold">What it measures</th>
                 <th className="px-3 py-2 text-left font-semibold">Key events (+)</th>
                 <th className="px-3 py-2 text-left font-semibold">Key events (-)</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-line">
               <tr>
                 <td className="px-3 py-2 font-semibold">Contact</td>
                 <td className="px-3 py-2">Ability to avoid strikeouts and make contact</td>
@@ -773,14 +773,14 @@ function TalentTab() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-border-line">
                 <th className="px-3 py-2 text-left font-semibold">Dimension</th>
                 <th className="px-3 py-2 text-left font-semibold">What it measures</th>
                 <th className="px-3 py-2 text-left font-semibold">Key events (+)</th>
                 <th className="px-3 py-2 text-left font-semibold">Key events (-)</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-line">
               <tr>
                 <td className="px-3 py-2 font-semibold">Stuff</td>
                 <td className="px-3 py-2">Strikeout-inducing ability (FIP-based)</td>
@@ -890,14 +890,14 @@ function MatchupEngineTab() {
         <p>
           The entire prediction pipeline runs client-side:
         </p>
-        <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm space-y-1 overflow-x-auto">
+        <div className="bg-white/5 rounded-lg p-4 font-mono text-sm space-y-1 overflow-x-auto">
           <p>[User selects Batter + Pitcher]</p>
           <p>{'  '}&rarr; Supabase: fetch talent_player_current for both (2 parallel queries)</p>
           <p>{'  '}&rarr; predictPlateAppearance() &mdash; pure TypeScript math</p>
           <p>{'  '}&rarr; Render: FinalPrediction + MatchupBar + StageResults</p>
         </div>
         <p className="mt-2">
-          The <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm">predictPlateAppearance()</code> function
+          The <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm">predictPlateAppearance()</code> function
           is a <strong>pure function</strong> — no side effects, no network calls, deterministic output.
           Given the same talent ELO inputs, it always produces the same probability distribution.
         </p>
@@ -910,14 +910,14 @@ function MatchupEngineTab() {
         <div className="overflow-x-auto mt-2">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-border-line">
                 <th className="px-3 py-2 text-left font-semibold">Role</th>
                 <th className="px-3 py-2 text-left font-semibold">Dimension</th>
                 <th className="px-3 py-2 text-left font-semibold">What it captures</th>
                 <th className="px-3 py-2 text-left font-semibold">Used in</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-line">
               <tr>
                 <td className="px-3 py-2">Batter</td>
                 <td className="px-3 py-2 font-semibold">Discipline</td>
@@ -957,7 +957,7 @@ function MatchupEngineTab() {
             </tbody>
           </table>
         </div>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-sm text-gray-400">
           Clutch dimensions are not used in the predictor — the prediction models a
           context-neutral plate appearance.
         </p>
@@ -973,7 +973,7 @@ function MatchupEngineTab() {
           The predictor converts every ELO to a <strong>z-score</strong> using the
           dimension-specific distribution from the 2025 season:
         </p>
-        <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm mt-2">
+        <div className="bg-white/5 rounded-lg p-4 font-mono text-sm mt-2">
           z = (ELO &minus; mean) / std
         </div>
         <p className="mt-2">
@@ -984,13 +984,13 @@ function MatchupEngineTab() {
         <div className="overflow-x-auto mt-3">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-border-line">
                 <th className="px-3 py-2 text-left font-semibold">Dimension</th>
                 <th className="px-3 py-2 text-left font-semibold">Mean</th>
                 <th className="px-3 py-2 text-left font-semibold">Std Dev</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-line">
               <tr>
                 <td className="px-3 py-2 font-mono">BATTER_CONTACT</td>
                 <td className="px-3 py-2">1504.5</td>
@@ -1024,7 +1024,7 @@ function MatchupEngineTab() {
             </tbody>
           </table>
         </div>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-sm text-gray-400">
           Values computed from 2025 MLB season talent_player_current table (673 batters, 873 pitchers).
         </p>
       </Accordion>
@@ -1034,7 +1034,7 @@ function MatchupEngineTab() {
           The prediction follows a <strong>sequential 3-stage decision tree</strong> that
           mirrors the natural structure of a plate appearance:
         </p>
-        <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm space-y-2 overflow-x-auto mt-2">
+        <div className="bg-white/5 rounded-lg p-4 font-mono text-sm space-y-2 overflow-x-auto mt-2">
           <p className="font-bold">Stage 1: What happens? (3-way Softmax)</p>
           <p>{'  '}P(BB), P(K), P(BIP) &larr; z(Discipline)-z(Command), z(Stuff)-z(Contact)</p>
           <p className="font-bold mt-3">Stage 2: If ball in play, hit or out? (Logistic)</p>
@@ -1066,7 +1066,7 @@ function MatchupEngineTab() {
           </li>
         </ul>
         <p className="font-semibold mt-3">Formula:</p>
-        <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm space-y-1 overflow-x-auto">
+        <div className="bg-white/5 rounded-lg p-4 font-mono text-sm space-y-1 overflow-x-auto">
           <p>base_logit_BB = ln(league_bb_rate / league_bip_rate)</p>
           <p>base_logit_K{'  '} = ln(league_k_rate / league_bip_rate)</p>
           <p className="mt-2">logit_BB = base_logit_BB + z_disc_cmd / 3.5</p>
@@ -1101,7 +1101,7 @@ function MatchupEngineTab() {
           </li>
         </ul>
         <p className="font-semibold mt-3">Formula:</p>
-        <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm space-y-1 overflow-x-auto">
+        <div className="bg-white/5 rounded-lg p-4 font-mono text-sm space-y-1 overflow-x-auto">
           <p>base_logit = ln(BABIP / (1 &minus; BABIP))</p>
           <p>logit = base_logit + z_contact_bip / 5.0</p>
           <p>P(Hit|BIP) = 1 / (1 + e^(&minus;logit))</p>
@@ -1129,13 +1129,13 @@ function MatchupEngineTab() {
           </li>
         </ul>
         <p className="font-semibold mt-3">Formula:</p>
-        <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm space-y-1 overflow-x-auto">
+        <div className="bg-white/5 rounded-lg p-4 font-mono text-sm space-y-1 overflow-x-auto">
           <p>base_logit = ln(xbh_rate / (1 &minus; xbh_rate))</p>
           <p>logit = base_logit + z_power / 5.0</p>
           <p>P(XBH|Hit) = 1 / (1 + e^(&minus;logit))</p>
           <p className="mt-2">P(1B) = P(Hit) &times; (1 &minus; P(XBH|Hit))</p>
           <p>P(XBH) = P(Hit) &times; P(XBH|Hit)</p>
-          <p className="mt-2 text-gray-500"># XBH split by league ratios:</p>
+          <p className="mt-2 text-gray-400"># XBH split by league ratios:</p>
           <p>P(2B) = P(XBH) &times; 0.552</p>
           <p>P(3B) = P(XBH) &times; 0.045</p>
           <p>P(HR) = P(XBH) &times; 0.403</p>
@@ -1154,13 +1154,13 @@ function MatchupEngineTab() {
         <div className="overflow-x-auto mt-2">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-border-line">
                 <th className="px-3 py-2 text-left font-semibold">Rate</th>
                 <th className="px-3 py-2 text-left font-semibold">Value</th>
                 <th className="px-3 py-2 text-left font-semibold">Description</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-line">
               <tr>
                 <td className="px-3 py-2 font-mono">bb_rate</td>
                 <td className="px-3 py-2">9.49%</td>
@@ -1214,12 +1214,12 @@ function MatchupEngineTab() {
         <div className="overflow-x-auto mt-2">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-border-line">
                 <th className="px-3 py-2 text-left font-semibold">Outcome</th>
                 <th className="px-3 py-2 text-left font-semibold">wOBA Weight</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-line">
               <tr>
                 <td className="px-3 py-2">BB</td>
                 <td className="px-3 py-2">0.69</td>
@@ -1247,7 +1247,7 @@ function MatchupEngineTab() {
             </tbody>
           </table>
         </div>
-        <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm mt-3">
+        <div className="bg-white/5 rounded-lg p-4 font-mono text-sm mt-3">
           expected_wOBA = &Sigma; P(outcome) &times; wOBA_weight(outcome)
         </div>
         <p className="mt-2">Additional derived statistics:</p>
@@ -1270,13 +1270,13 @@ function MatchupEngineTab() {
         <div className="overflow-x-auto mt-2">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-border-line">
                 <th className="px-3 py-2 text-left font-semibold">Stage</th>
                 <th className="px-3 py-2 text-left font-semibold">Divisor</th>
                 <th className="px-3 py-2 text-left font-semibold">Rationale</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-line">
               <tr>
                 <td className="px-3 py-2">Stage 1 (BB)</td>
                 <td className="px-3 py-2 font-mono">3.5</td>
@@ -1377,7 +1377,7 @@ function DeveloperTab() {
         <p>
           The MLB ELO system follows a simple pipeline architecture:
         </p>
-        <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm overflow-x-auto">
+        <div className="bg-white/5 rounded-lg p-4 font-mono text-sm overflow-x-auto">
           <p>[Statcast Parquet] → ETL → [Supabase plate_appearances] → ELO Engine → [Supabase player_elo / daily_ohlc]</p>
         </div>
         <p>
@@ -1398,12 +1398,12 @@ function DeveloperTab() {
         <p>
           For each plate appearance, the ELO update follows three steps:
         </p>
-        <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm space-y-2">
-          <p className="text-gray-500"># Step 1: Park factor adjustment</p>
+        <div className="bg-white/5 rounded-lg p-4 font-mono text-sm space-y-2">
+          <p className="text-gray-400"># Step 1: Park factor adjustment</p>
           <p><strong>adjusted_rv</strong> = delta_run_exp − (park_factor − 1.0) × 0.1</p>
-          <p className="text-gray-500 mt-2"># Step 2: State normalization</p>
+          <p className="text-gray-400 mt-2"># Step 2: State normalization</p>
           <p><strong>rv_diff</strong> = adjusted_rv − mean_rv[base_out_state]</p>
-          <p className="text-gray-500 mt-2"># Step 3: ELO update (zero-sum)</p>
+          <p className="text-gray-400 mt-2"># Step 3: ELO update (zero-sum)</p>
           <p><strong>batter_delta</strong> = K × rv_diff</p>
           <p><strong>pitcher_delta</strong> = −batter_delta</p>
         </div>
@@ -1411,13 +1411,13 @@ function DeveloperTab() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-border-line">
                 <th className="px-3 py-2 text-left font-semibold">Parameter</th>
                 <th className="px-3 py-2 text-left font-semibold">Value</th>
                 <th className="px-3 py-2 text-left font-semibold">Description</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-line">
               <tr>
                 <td className="px-3 py-2 font-mono">K_FACTOR</td>
                 <td className="px-3 py-2">12.0</td>
@@ -1484,7 +1484,7 @@ function DeveloperTab() {
           Daily OHLC (Open-High-Low-Close) values are computed for each player
           who had at least one plate appearance on a given day:
         </p>
-        <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm space-y-1">
+        <div className="bg-white/5 rounded-lg p-4 font-mono text-sm space-y-1">
           <p><strong>Open</strong>: ELO before the first PA of the day</p>
           <p><strong>High</strong>: Maximum ELO reached during the day</p>
           <p><strong>Low</strong>: Minimum ELO reached during the day</p>
@@ -1501,30 +1501,30 @@ function DeveloperTab() {
       <Accordion title="Two-Way Player Implementation">
         <p>
           The engine tracks <strong>separate batting and pitching ELO</strong> for every player via
-          the <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm">PlayerEloState</code> dataclass:
+          the <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm">PlayerEloState</code> dataclass:
         </p>
-        <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm space-y-1">
-          <p>batting_elo:  float  <span className="text-gray-500"># updated only when batting</span></p>
-          <p>pitching_elo: float  <span className="text-gray-500"># updated only when pitching</span></p>
-          <p>batting_pa:   int    <span className="text-gray-500"># plate appearances as batter</span></p>
-          <p>pitching_pa:  int    <span className="text-gray-500"># batters faced as pitcher</span></p>
+        <div className="bg-white/5 rounded-lg p-4 font-mono text-sm space-y-1">
+          <p>batting_elo:  float  <span className="text-gray-400"># updated only when batting</span></p>
+          <p>pitching_elo: float  <span className="text-gray-400"># updated only when pitching</span></p>
+          <p>batting_pa:   int    <span className="text-gray-400"># plate appearances as batter</span></p>
+          <p>pitching_pa:  int    <span className="text-gray-400"># batters faced as pitcher</span></p>
         </div>
         <p className="mt-2">
-          During <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm">process_plate_appearance()</code>,
+          During <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm">process_plate_appearance()</code>,
           the batter's <strong>batting_elo</strong> and the pitcher's <strong>pitching_elo</strong> are
           used to compute deltas. Pure batters have a dormant pitching_elo at 1,500, and vice versa.
         </p>
         <p className="mt-2">
-          OHLC records are keyed by <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm">(player_id, role)</code>,
-          where <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm">role</code> is either
-          {' '}<code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm">BATTING</code> or{' '}
-          <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm">PITCHING</code>.
+          OHLC records are keyed by <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm">(player_id, role)</code>,
+          where <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm">role</code> is either
+          {' '}<code className="bg-white/10 px-1.5 py-0.5 rounded text-sm">BATTING</code> or{' '}
+          <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm">PITCHING</code>.
           This means a two-way player generates two OHLC entries per game day — one for each role.
         </p>
         <p className="mt-2">
           The <strong>composite_elo</strong> is a backward-compatible weighted average:
         </p>
-        <div className="bg-gray-50 rounded-lg p-4 font-mono text-sm mt-1">
+        <div className="bg-white/5 rounded-lg p-4 font-mono text-sm mt-1">
           composite = (batting_elo × batting_pa + pitching_elo × pitching_pa) / total_pa
         </div>
       </Accordion>
@@ -1536,13 +1536,13 @@ function DeveloperTab() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-border-line">
                 <th className="px-3 py-2 text-left font-semibold">Table</th>
                 <th className="px-3 py-2 text-left font-semibold">Rows</th>
                 <th className="px-3 py-2 text-left font-semibold">Description</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border-line">
               <tr>
                 <td className="px-3 py-2 font-mono">players</td>
                 <td className="px-3 py-2">1,469</td>
@@ -1617,7 +1617,7 @@ export default function Guide() {
           className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all ${
             activeTab === 'overview'
               ? 'bg-primary text-white'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              : 'bg-white/10 text-gray-400 hover:bg-white/15'
           }`}
         >
           <Info className="w-4 h-4" />
@@ -1628,7 +1628,7 @@ export default function Guide() {
           className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all ${
             activeTab === 'general'
               ? 'bg-primary text-white'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              : 'bg-white/10 text-gray-400 hover:bg-white/15'
           }`}
         >
           <BookOpen className="w-4 h-4" />
@@ -1639,7 +1639,7 @@ export default function Guide() {
           className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all ${
             activeTab === 'talent'
               ? 'bg-primary text-white'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              : 'bg-white/10 text-gray-400 hover:bg-white/15'
           }`}
         >
           <Sparkles className="w-4 h-4" />
@@ -1650,7 +1650,7 @@ export default function Guide() {
           className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all ${
             activeTab === 'matchup'
               ? 'bg-primary text-white'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              : 'bg-white/10 text-gray-400 hover:bg-white/15'
           }`}
         >
           <Crosshair className="w-4 h-4" />
@@ -1661,7 +1661,7 @@ export default function Guide() {
           className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all ${
             activeTab === 'developer'
               ? 'bg-primary text-white'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              : 'bg-white/10 text-gray-400 hover:bg-white/15'
           }`}
         >
           <Code className="w-4 h-4" />
@@ -1670,7 +1670,7 @@ export default function Guide() {
       </div>
 
       {/* Tab Content */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="bg-bg-card rounded-xl shadow-sm border border-border-line p-6">
         {activeTab === 'overview' ? <OverviewTab /> : activeTab === 'general' ? <GeneralTab /> : activeTab === 'talent' ? <TalentTab /> : activeTab === 'matchup' ? <MatchupEngineTab /> : <DeveloperTab />}
       </div>
     </div>

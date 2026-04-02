@@ -44,7 +44,13 @@ class TeamEloEngine:
                  season_regression_fraction, elo_divisor.
     """
 
-    def __init__(self, config: dict):
+    # FiveThirtyEight-style reset weights
+    PROJECTION_WEIGHT = 0.67
+    PRIOR_SEASON_WEIGHT = 0.33
+    # ELO points per win above .500 (~10 ELO per win is standard)
+    ELO_PER_WIN = 10.0
+
+    def __init__(self, config: dict, projected_wins: dict[str, float] | None = None):
         self._config = config
         self.initial_elo: float = config["initial_elo"]
         self.k: float = config["k_factor"]
@@ -54,6 +60,7 @@ class TeamEloEngine:
         self.ratings: dict[str, float] = {}
         self.records: list[TeamEloRecord] = []
         self._current_season: int | None = None
+        self._projected_wins: dict[str, float] = projected_wins or {}
 
     def _get_elo(self, team: str) -> float:
         return self.ratings.setdefault(team, self.initial_elo)
@@ -65,8 +72,23 @@ class TeamEloEngine:
         return log(abs(run_diff) + 1)
 
     def _season_reset(self, new_season: int) -> None:
+        """FiveThirtyEight-style reset: 67% projection + 33% regressed prior."""
         for team in self.ratings:
-            self.ratings[team] += self.regression * (self.initial_elo - self.ratings[team])
+            # Regress prior season final rating 1/3 toward mean
+            regressed = self.ratings[team] + self.regression * (
+                self.initial_elo - self.ratings[team]
+            )
+            # If we have projected wins, blend with projection
+            if team in self._projected_wins:
+                proj_wins = self._projected_wins[team]
+                proj_elo = self.initial_elo + (proj_wins - 81) * self.ELO_PER_WIN
+                self.ratings[team] = (
+                    self.PROJECTION_WEIGHT * proj_elo
+                    + self.PRIOR_SEASON_WEIGHT * regressed
+                )
+            else:
+                # Fallback: simple regression (old behavior)
+                self.ratings[team] = regressed
         self._current_season = new_season
 
     def process_game(self, game: GameResult) -> tuple[TeamEloRecord, TeamEloRecord]:

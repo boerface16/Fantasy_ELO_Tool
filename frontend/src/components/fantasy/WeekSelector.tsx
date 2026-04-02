@@ -17,20 +17,20 @@ export default function WeekSelector({ weekStart, weekEnd, onPrev, onNext }: Pro
     <div className="flex items-center gap-3">
       <button
         onClick={onPrev}
-        className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+        className="p-2 rounded-lg hover:bg-white/10 transition-colors"
         aria-label="Previous week"
       >
-        <ChevronLeft className="w-5 h-5 text-gray-600" />
+        <ChevronLeft className="w-5 h-5 text-gray-400" />
       </button>
-      <span className="text-sm font-semibold text-gray-700 min-w-[220px] text-center">
+      <span className="text-sm font-semibold text-gray-300 min-w-[220px] text-center">
         {formatDate(weekStart)} — {formatDate(weekEnd)}
       </span>
       <button
         onClick={onNext}
-        className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+        className="p-2 rounded-lg hover:bg-white/10 transition-colors"
         aria-label="Next week"
       >
-        <ChevronRight className="w-5 h-5 text-gray-600" />
+        <ChevronRight className="w-5 h-5 text-gray-400" />
       </button>
     </div>
   );

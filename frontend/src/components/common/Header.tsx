@@ -6,11 +6,11 @@ export default function Header() {
   const location = useLocation();
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-border-line px-4 md:px-10 py-3 shadow-sm">
+    <header className="sticky top-0 z-50 bg-bg-card border-b border-border-line px-4 md:px-10 py-3 shadow-sm">
       <div className="max-w-[1200px] mx-auto flex items-center justify-between gap-4">
         {/* Logo */}
         <Link to="/" className="text-xl font-bold leading-tight tracking-tight text-primary">
-          MLB ELO Demo
+          Beers Fantasy Tool
         </Link>
 
         {/* Navigation */}
@@ -20,7 +20,7 @@ export default function Header() {
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
               location.pathname === '/'
                 ? 'bg-primary text-white'
-                : 'text-gray-600 hover:bg-gray-100'
+                : 'text-gray-400 hover:bg-white/10'
             }`}
           >
             Daily
@@ -30,7 +30,7 @@ export default function Header() {
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
               location.pathname === '/leaderboard'
                 ? 'bg-primary text-white'
-                : 'text-gray-600 hover:bg-gray-100'
+                : 'text-gray-400 hover:bg-white/10'
             }`}
           >
             Leaderboard
@@ -40,7 +40,7 @@ export default function Header() {
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
               location.pathname === '/talent-leaderboard'
                 ? 'bg-primary text-white'
-                : 'text-gray-600 hover:bg-gray-100'
+                : 'text-gray-400 hover:bg-white/10'
             }`}
           >
             Talent
@@ -50,7 +50,7 @@ export default function Header() {
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
               location.pathname === '/matchup'
                 ? 'bg-primary text-white'
-                : 'text-gray-600 hover:bg-gray-100'
+                : 'text-gray-400 hover:bg-white/10'
             }`}
           >
             Matchup
@@ -60,7 +60,7 @@ export default function Header() {
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
               location.pathname.startsWith('/fantasy')
                 ? 'bg-primary text-white'
-                : 'text-gray-600 hover:bg-gray-100'
+                : 'text-gray-400 hover:bg-white/10'
             }`}
           >
             Fantasy
@@ -70,7 +70,7 @@ export default function Header() {
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
               location.pathname === '/guide'
                 ? 'bg-primary text-white'
-                : 'text-gray-600 hover:bg-gray-100'
+                : 'text-gray-400 hover:bg-white/10'
             }`}
           >
             Guide
@@ -81,7 +81,7 @@ export default function Header() {
         <div className="hidden sm:block">
           <PlayerSearch />
         </div>
-        <button className="sm:hidden flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-700">
+        <button className="sm:hidden flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-gray-300">
           <Search className="w-5 h-5" />
         </button>
       </div>

@@ -26,11 +26,16 @@ from src.engine.elo_config import INITIAL_ELO
 from src.engine.re24_baseline import RE24Baseline
 from src.engine.park_factor import ParkFactor
 from src.engine.talent_batch import TalentBatch
-from src.engine.talent_state_manager import DualBatterState, DualPitcherState
+from src.engine.talent_state_manager import DualBatterState, DualPitcherState, TalentStateManager
 from src.engine.multi_elo_types import (
     BatterTalentState, PitcherTalentState, DEFAULT_ELO,
     BATTER_DIM_NAMES, BATTER_DIM_COUNT,
     PITCHER_DIM_NAMES, PITCHER_DIM_COUNT,
+)
+from src.engine.preseason_projections import (
+    fetch_player_projections,
+    projection_to_batter_elo,
+    projection_to_pitcher_elo,
 )
 from src.etl.fetch_statcast import fetch_statcast_date
 from src.etl.statcast_to_pa import convert_statcast_to_pa
@@ -173,6 +178,60 @@ def _prepare_talent_ohlc_records(ohlc_list: list[dict]) -> list[dict]:
             'total_pa': int(ohlc.get('total_pa', 0)),
         })
     return records
+
+
+def _detect_season_boundary(client, target_date: date) -> bool:
+    """Check if target_date is the first game day of a new season.
+
+    Compares target year against the most recent game_date in plate_appearances.
+    """
+    resp = (
+        client.table("plate_appearances")
+        .select("game_date")
+        .order("game_date", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if not resp.data:
+        return False
+    last_date = resp.data[0]["game_date"]
+    last_year = int(last_date[:4])
+    return target_date.year > last_year
+
+
+def _apply_talent_season_reset(
+    batters: dict[int, DualBatterState],
+    pitchers: dict[int, DualPitcherState],
+    new_season: int,
+) -> None:
+    """Fetch projections and apply FiveThirtyEight-style reset to talent states."""
+    logger.info(f"Season boundary detected — resetting talent ELO for {new_season}")
+
+    # Fetch consensus projections
+    bat_proj_elo = {}
+    pit_proj_elo = {}
+    try:
+        bat_df = fetch_player_projections("bat")
+        if bat_df is not None:
+            bat_proj_elo = projection_to_batter_elo(bat_df)
+    except Exception as e:
+        logger.warning(f"Failed to fetch batter projections: {e}")
+
+    try:
+        pit_df = fetch_player_projections("pit")
+        if pit_df is not None:
+            pit_proj_elo = projection_to_pitcher_elo(pit_df)
+    except Exception as e:
+        logger.warning(f"Failed to fetch pitcher projections: {e}")
+
+    # Apply reset via TalentStateManager
+    mgr = TalentStateManager(initial_batters=batters, initial_pitchers=pitchers)
+    mgr.reset_season(new_season, batter_projections=bat_proj_elo, pitcher_projections=pit_proj_elo)
+
+    logger.info(
+        f"  Reset complete: {len(bat_proj_elo)} batters with projections, "
+        f"{len(pit_proj_elo)} pitchers with projections"
+    )
 
 
 def delete_date_data(client, target_date: date):
@@ -364,6 +423,11 @@ def run_daily_pipeline(target_date: date = None, force: bool = False) -> dict:
     # 9. Talent ELO (incremental 9D)
     logger.info("  Running incremental Talent ELO calculation...")
     initial_batters, initial_pitchers = load_current_talent_states(client)
+
+    # Season boundary: apply projection-based reset if entering a new year
+    if _detect_season_boundary(client, target_date):
+        _apply_talent_season_reset(initial_batters, initial_pitchers, target_date.year)
+
     talent_batch = TalentBatch(initial_batters=initial_batters, initial_pitchers=initial_pitchers)
     talent_batch.process(pa_df)
 

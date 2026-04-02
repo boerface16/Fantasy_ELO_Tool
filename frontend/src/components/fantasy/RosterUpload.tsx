@@ -39,11 +39,11 @@ export default function RosterUpload({ onRosterParsed, isLoading }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+    <div className="bg-bg-card rounded-xl border border-border-line shadow-sm">
       <div className="p-5">
         <div className="flex items-center gap-2 mb-3">
-          <Upload className="w-4 h-4 text-gray-500" />
-          <h3 className="text-sm font-semibold text-gray-700">Paste Your Roster</h3>
+          <Upload className="w-4 h-4 text-gray-400" />
+          <h3 className="text-sm font-semibold text-gray-300">Paste Your Roster</h3>
         </div>
 
         <textarea
@@ -51,7 +51,7 @@ export default function RosterUpload({ onRosterParsed, isLoading }: Props) {
           onChange={(e) => setText(e.target.value)}
           placeholder={PLACEHOLDER}
           rows={8}
-          className="w-full rounded-lg border border-gray-200 p-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-y"
+          className="w-full rounded-lg border border-border-line p-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-y"
         />
 
         <div className="flex items-center gap-3 mt-3">
@@ -79,7 +79,7 @@ export default function RosterUpload({ onRosterParsed, isLoading }: Props) {
       </div>
 
       {entries && entries.length > 0 && (
-        <div className="border-t border-gray-100 px-5 py-3 max-h-64 overflow-y-auto">
+        <div className="border-t border-border-line px-5 py-3 max-h-64 overflow-y-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-xs text-gray-400 uppercase">
@@ -92,11 +92,11 @@ export default function RosterUpload({ onRosterParsed, isLoading }: Props) {
             </thead>
             <tbody>
               {entries.map((e, i) => (
-                <tr key={i} className="border-t border-gray-50">
-                  <td className="py-1.5 font-mono text-gray-500">{e.slot || '—'}</td>
+                <tr key={i} className="border-t border-border-line">
+                  <td className="py-1.5 font-mono text-gray-400">{e.slot || '—'}</td>
                   <td className="py-1.5 font-medium">{e.matchedName || e.name}</td>
-                  <td className="py-1.5 text-gray-600">{e.dbTeam || e.team}</td>
-                  <td className="py-1.5 text-gray-600">{e.position || '—'}</td>
+                  <td className="py-1.5 text-gray-400">{e.dbTeam || e.team}</td>
+                  <td className="py-1.5 text-gray-400">{e.position || '—'}</td>
                   <td className="py-1.5">
                     {e.playerId ? (
                       <span className="text-green-600 text-xs">Matched</span>

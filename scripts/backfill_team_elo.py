@@ -23,6 +23,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.engine.team_elo_engine import TeamEloEngine, extract_game_results
+from src.engine.preseason_projections import fetch_team_projected_wins
 from src.etl.upload_to_supabase import get_supabase_client, upload_table
 
 PA_COLUMNS = "pa_id,game_pk,game_date,home_team,away_team,bat_score,fld_score,inning_half"
@@ -76,8 +77,11 @@ def run_backfill(target_date: str | None = None, date_range: tuple[str, str] | N
         logger.info("No valid game results extracted.")
         return
 
+    # Fetch projected wins for season reset
+    projected_wins = fetch_team_projected_wins()
+
     # For incremental updates, load prior ratings from most recent team_elo rows
-    engine = TeamEloEngine(config)
+    engine = TeamEloEngine(config, projected_wins=projected_wins)
     if target_date or date_range:
         _load_prior_ratings(client, engine)
 

@@ -39,27 +39,27 @@ export default function PlayerSearch() {
           }}
           onFocus={() => query.length >= 2 && setIsOpen(true)}
           placeholder="Search players..."
-          className="w-48 lg:w-64 h-10 rounded-lg border-none bg-gray-100 px-4 pl-10 text-sm focus:ring-2 focus:ring-primary/50"
+          className="w-48 lg:w-64 h-10 rounded-lg border-none bg-bg-card/10 px-4 pl-10 text-sm focus:ring-2 focus:ring-primary/50"
         />
-        <Search className="absolute left-3 top-2.5 text-gray-500 w-5 h-5" />
+        <Search className="absolute left-3 top-2.5 text-gray-400 w-5 h-5" />
       </div>
 
       {isOpen && (
-        <div className="absolute top-12 left-0 w-72 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+        <div className="absolute top-12 left-0 w-72 bg-bg-card rounded-lg shadow-lg border border-border-line py-2 z-50">
           {isLoading ? (
-            <div className="px-4 py-2 text-gray-500 text-sm">Loading...</div>
+            <div className="px-4 py-2 text-gray-400 text-sm">Loading...</div>
           ) : results.length === 0 ? (
-            <div className="px-4 py-2 text-gray-500 text-sm">No results found</div>
+            <div className="px-4 py-2 text-gray-400 text-sm">No results found</div>
           ) : (
             results.map((player) => (
               <button
                 key={player.player_id}
                 onClick={() => handleSelect(player.player_id)}
-                className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-3"
+                className="w-full px-4 py-2 text-left hover:bg-white/5 flex items-center gap-3"
               >
                 <span className="font-medium">{player.full_name}</span>
                 <span className="text-gray-400">|</span>
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-gray-400">
                   {player.is_two_way ? 'Two-Way' : player.position === 'pitcher' ? 'Pitcher' : 'Batter'}
                 </span>
                 {player.is_two_way && (
@@ -68,7 +68,7 @@ export default function PlayerSearch() {
                   </span>
                 )}
                 <span className="text-gray-400">|</span>
-                <span className="text-sm text-gray-500">{player.team}</span>
+                <span className="text-sm text-gray-400">{player.team}</span>
               </button>
             ))
           )}

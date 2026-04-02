@@ -14,7 +14,7 @@ function StatCard({ label, value, icon: Icon, color }: {
   color: string;
 }) {
   return (
-    <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+    <div className="bg-bg-card rounded-xl p-4 border border-border-line shadow-sm">
       <div className="flex items-center gap-2 mb-1">
         <Icon className={`w-4 h-4 ${color}`} />
         <span className="text-xs font-semibold text-gray-400 uppercase">{label}</span>
@@ -28,7 +28,7 @@ export default function FantasyPointsPanel({ totalPoints, batterPoints, pitcherP
   return (
     <div>
       {weekLabel && (
-        <h3 className="text-sm font-semibold text-gray-500 mb-3">{weekLabel}</h3>
+        <h3 className="text-sm font-semibold text-gray-400 mb-3">{weekLabel}</h3>
       )}
       <div className="grid grid-cols-3 gap-4">
         <StatCard label="Total" value={totalPoints} icon={Trophy} color="text-amber-500" />

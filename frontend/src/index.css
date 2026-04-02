@@ -2,36 +2,37 @@
 @import "tailwindcss";
 
 @theme {
-  /* Primary color — MLB blue */
-  --color-primary: #1E40AF;
+  /* Primary color — brighter blue for dark bg */
+  --color-primary: #3B82F6;
 
   /* ELO tier colors */
-  --color-elo-elite: #DC2626;
-  --color-elo-high: #F97316;
+  --color-elo-elite: #EF4444;
+  --color-elo-high: #FB923C;
   --color-elo-above: #FBBF24;
-  --color-elo-average: #6B7280;
+  --color-elo-average: #9CA3AF;
   --color-elo-below: #60A5FA;
   --color-elo-low: #3B82F6;
-  --color-elo-cold: #1D4ED8;
+  --color-elo-cold: #6366F1;
 
   /* Delta colors */
-  --color-delta-up: #16A34A;
-  --color-delta-down: #DC2626;
+  --color-delta-up: #22C55E;
+  --color-delta-down: #EF4444;
 
-  /* Background colors */
-  --color-bg-page: #FAFAFA;
-  --color-bg-card: #FFFFFF;
-  --color-border-line: #E5E7EB;
+  /* Background colors — dark slate */
+  --color-bg-page: #0F172A;
+  --color-bg-card: #1E293B;
+  --color-border-line: #334155;
 
   /* Font family */
   --font-display: 'Lexend', sans-serif;
 
   /* Box shadow */
-  --shadow-modern: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-modern: 0 2px 8px rgba(0,0,0,0.3);
 }
 
 body {
   background-color: var(--color-bg-page);
   font-family: var(--font-display);
+  color: #E2E8F0;
   margin: 0;
 }

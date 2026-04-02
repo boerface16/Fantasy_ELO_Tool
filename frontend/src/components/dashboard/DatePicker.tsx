@@ -50,13 +50,13 @@ export default function DatePicker({ selectedDate, onDateChange, minDate, maxDat
   };
 
   return (
-    <div className="flex items-center gap-2 bg-white p-2 rounded-xl shadow-modern border border-gray-100">
+    <div className="flex items-center gap-2 bg-bg-card p-2 rounded-xl shadow-modern border border-border-line">
       <button
         onClick={goToPrevDay}
-        className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+        className="p-1 hover:bg-white/10 rounded-lg transition-colors"
         title="Previous day"
       >
-        <ChevronLeft className="w-5 h-5 text-gray-600" />
+        <ChevronLeft className="w-5 h-5 text-gray-400" />
       </button>
 
       <span className="px-4 font-bold text-sm min-w-[160px] text-center">
@@ -65,10 +65,10 @@ export default function DatePicker({ selectedDate, onDateChange, minDate, maxDat
 
       <button
         onClick={goToNextDay}
-        className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+        className="p-1 hover:bg-white/10 rounded-lg transition-colors"
         title="Next day"
       >
-        <ChevronRight className="w-5 h-5 text-gray-600" />
+        <ChevronRight className="w-5 h-5 text-gray-400" />
       </button>
 
       <button

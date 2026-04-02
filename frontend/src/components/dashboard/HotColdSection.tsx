@@ -25,7 +25,7 @@ export default function HotColdSection({ type, players, isLoading }: HotColdSect
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="bg-white rounded-xl h-40 animate-pulse shadow-modern" />
+            <div key={i} className="bg-bg-card rounded-xl h-40 animate-pulse shadow-modern" />
           ))}
         </div>
       </section>

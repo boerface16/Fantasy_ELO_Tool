@@ -6,11 +6,11 @@ interface Props {
 
 function wobaAgainstColor(woba: number): string {
   // Lower wOBA against is better for the pitcher
-  if (woba <= 0.270) return 'bg-green-100 text-green-800';
-  if (woba <= 0.300) return 'bg-green-50 text-green-700';
-  if (woba <= 0.330) return 'bg-gray-50 text-gray-700';
-  if (woba <= 0.360) return 'bg-red-50 text-red-700';
-  return 'bg-red-100 text-red-800';
+  if (woba <= 0.270) return 'bg-green-900/30 text-green-400';
+  if (woba <= 0.300) return 'bg-green-900/20 text-green-400';
+  if (woba <= 0.330) return 'bg-white/5 text-gray-300';
+  if (woba <= 0.360) return 'bg-red-900/20 text-red-400';
+  return 'bg-red-900/30 text-red-400';
 }
 
 export default function PitcherGrid({ pitchers }: Props) {
@@ -22,7 +22,7 @@ export default function PitcherGrid({ pitchers }: Props) {
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-200">
+          <tr className="border-b border-border-line">
             <th className="text-left py-2 px-3 text-xs text-gray-400 uppercase">Pitcher</th>
             <th className="text-left py-2 px-3 text-xs text-gray-400 uppercase w-14">Team</th>
             <th className="text-center py-2 px-3 text-xs text-gray-400 uppercase w-16">Starts</th>
@@ -32,9 +32,9 @@ export default function PitcherGrid({ pitchers }: Props) {
         </thead>
         <tbody>
           {pitchers.map((p, idx) => (
-            <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50/50">
+            <tr key={idx} className="border-b border-border-line hover:bg-white/5">
               <td className="py-2.5 px-3 font-medium">{p.name}</td>
-              <td className="py-2.5 px-3 text-gray-600">{p.team}</td>
+              <td className="py-2.5 px-3 text-gray-400">{p.team}</td>
               <td className="py-2.5 px-3 text-center tabular-nums">{p.starts}</td>
               <td className="py-2.5 px-3">
                 <div className="flex gap-2 flex-wrap">
@@ -54,8 +54,8 @@ export default function PitcherGrid({ pitchers }: Props) {
           ))}
         </tbody>
         <tfoot>
-          <tr className="border-t-2 border-gray-200 font-semibold">
-            <td colSpan={4} className="py-2 px-3 text-gray-500">Total</td>
+          <tr className="border-t-2 border-border-line font-semibold">
+            <td colSpan={4} className="py-2 px-3 text-gray-400">Total</td>
             <td className="py-2 px-3 text-right tabular-nums">
               {pitchers.reduce((sum, p) => sum + p.totalPoints, 0).toFixed(1)}
             </td>

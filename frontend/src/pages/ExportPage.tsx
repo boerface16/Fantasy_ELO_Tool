@@ -57,33 +57,33 @@ export default function ExportPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Export PDF Report</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-gray-400 mt-1">
           Generate a downloadable PDF with your weekly fantasy projections
         </p>
       </div>
 
       {/* Roster Input */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-        <label className="block text-sm font-semibold text-gray-700 mb-2">
+      <div className="bg-bg-card rounded-xl border border-border-line shadow-sm p-5">
+        <label className="block text-sm font-semibold text-gray-300 mb-2">
           Paste ESPN Roster
         </label>
         <textarea
           value={rosterText}
           onChange={(e) => setRosterText(e.target.value)}
           placeholder="Paste your ESPN roster here (e.g., C\tSalvador Perez, KC C)..."
-          className="w-full h-40 border border-gray-200 rounded-lg p-3 text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          className="w-full h-40 border border-border-line rounded-lg p-3 text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
         />
       </div>
 
       {/* Week + Export Button */}
       <div className="flex items-center gap-4 flex-wrap">
         <div className="flex items-center gap-2">
-          <label className="text-sm font-semibold text-gray-700">Week of:</label>
+          <label className="text-sm font-semibold text-gray-300">Week of:</label>
           <input
             type="date"
             value={refDate}
             onChange={(e) => setRefDate(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="border border-border-line rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
         <button
@@ -103,9 +103,9 @@ export default function ExportPage() {
       {error && <div className="text-red-500 text-sm">{error}</div>}
 
       {/* Instructions */}
-      <div className="bg-gray-50 rounded-xl border border-gray-100 p-5">
-        <h3 className="text-sm font-semibold text-gray-700 mb-2">How it works</h3>
-        <ol className="text-sm text-gray-600 space-y-1 list-decimal list-inside">
+      <div className="bg-white/5 rounded-xl border border-border-line p-5">
+        <h3 className="text-sm font-semibold text-gray-300 mb-2">How it works</h3>
+        <ol className="text-sm text-gray-400 space-y-1 list-decimal list-inside">
           <li>Paste your ESPN roster (copy from My Team page)</li>
           <li>Select the week start date</li>
           <li>Click "Generate PDF" to download your report</li>

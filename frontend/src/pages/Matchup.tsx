@@ -9,9 +9,9 @@ import type { BatterTalentElo, PitcherTalentElo } from '../types/matchup';
 
 function TalentPill({ label, elo, icon: Icon }: { label: string; elo: number; icon: React.ComponentType<{ className?: string }> }) {
   return (
-    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 text-sm">
-      <Icon className="w-3.5 h-3.5 text-gray-500" />
-      <span className="text-gray-600">{label}</span>
+    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-card/10 text-sm">
+      <Icon className="w-3.5 h-3.5 text-gray-400" />
+      <span className="text-gray-400">{label}</span>
       <span className="font-semibold tabular-nums">{Math.round(elo)}</span>
     </div>
   );
@@ -60,7 +60,7 @@ export default function Matchup() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">Matchup Predictor</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-gray-400 mt-1">
           3-stage plate appearance prediction using talent ELO z-scores
         </p>
       </div>
@@ -68,7 +68,7 @@ export default function Matchup() {
       {/* Player selectors */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Batter */}
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+        <div className="bg-bg-card rounded-xl p-5 shadow-sm border border-border-line">
           <div className="text-xs font-semibold text-gray-400 mb-2">BATTER</div>
           <PlayerSelector
             role="batter"
@@ -79,7 +79,7 @@ export default function Matchup() {
         </div>
 
         {/* Pitcher */}
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+        <div className="bg-bg-card rounded-xl p-5 shadow-sm border border-border-line">
           <div className="text-xs font-semibold text-gray-400 mb-2">PITCHER</div>
           <PlayerSelector
             role="pitcher"

@@ -46,6 +46,16 @@ export default function Header() {
             Talent
           </Link>
           <Link
+            to="/team-elo"
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+              location.pathname.startsWith('/team-elo')
+                ? 'bg-primary text-white'
+                : 'text-gray-400 hover:bg-white/10'
+            }`}
+          >
+            Team ELO
+          </Link>
+          <Link
             to="/matchup"
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
               location.pathname === '/matchup'

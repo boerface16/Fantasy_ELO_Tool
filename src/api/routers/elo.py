@@ -217,7 +217,7 @@ async def season_meta():
 
     start_date = earliest.data[0]["game_date"] if earliest.data else ""
     end_date = latest.data[0]["game_date"] if latest.data else ""
-    year = int(start_date[:4]) if start_date else 2025
+    year = int(end_date[:4]) if end_date else 2025
 
     return {"year": year, "startDate": start_date, "endDate": end_date}
 

@@ -18,6 +18,15 @@ export function useTeamElo(teamCode: string) {
   });
 }
 
+export function useTeamEloHistory(teamCode: string) {
+  return useQuery({
+    queryKey: ['teamEloHistory', teamCode],
+    queryFn: () => fantasyApi.getTeamEloHistory(teamCode),
+    enabled: !!teamCode,
+    staleTime: 60_000,
+  });
+}
+
 export function useParseRoster() {
   return useMutation({
     mutationFn: (rosterText: string) => fantasyApi.parseRoster(rosterText),

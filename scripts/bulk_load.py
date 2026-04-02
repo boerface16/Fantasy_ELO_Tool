@@ -5,7 +5,7 @@ and processes ELO/talent in bulk. ~2-3 minutes vs 60+ minutes day-by-day.
 
 Usage:
     python -m scripts.bulk_load
-    python -m scripts.bulk_load --end-date 2025-09-28
+    python -m scripts.bulk_load --end-date 2026-04-02 #year month day
 """
 
 import argparse
@@ -274,9 +274,44 @@ def upload_talent_ohlc_psycopg2(conn, talent_ohlc):
     cur.close()
 
 
+def _build_season_projections() -> dict[int, tuple[float | None, float | None]]:
+    """Fetch FanGraphs projections and build {player_id: (proj_batting, proj_pitching)} dict."""
+    from src.engine.preseason_projections import (
+        fetch_player_projections, projection_to_batter_elo, projection_to_pitcher_elo,
+    )
+
+    projections: dict[int, tuple[float | None, float | None]] = {}
+
+    try:
+        bat_df = fetch_player_projections("bat")
+        if bat_df is not None:
+            bat_elo = projection_to_batter_elo(bat_df)
+            for pid, elo_arr in bat_elo.items():
+                proj_batting = float(np.mean(elo_arr))
+                projections[pid] = (proj_batting, projections.get(pid, (None, None))[1])
+    except Exception as e:
+        logger.warning(f"Failed to fetch batter projections: {e}")
+
+    try:
+        pit_df = fetch_player_projections("pit")
+        if pit_df is not None:
+            pit_elo = projection_to_pitcher_elo(pit_df)
+            for pid, elo_arr in pit_elo.items():
+                proj_pitching = float(np.mean(elo_arr))
+                existing = projections.get(pid, (None, None))
+                projections[pid] = (existing[0], proj_pitching)
+    except Exception as e:
+        logger.warning(f"Failed to fetch pitcher projections: {e}")
+
+    logger.info(f"Built season projections for {len(projections)} players")
+    return projections
+
+
 def main():
     parser = argparse.ArgumentParser(description="Fast bulk data loader")
     parser.add_argument("--end-date", type=str, default="2025-09-28")
+    parser.add_argument("--fresh", action="store_true",
+                        help="Ignore existing ELO states; start all players at 1500")
     args = parser.parse_args()
     end = date.fromisoformat(args.end_date)
 
@@ -312,27 +347,51 @@ def main():
     upload_pas_psycopg2(conn, pa_df)
 
     # 6. Run ELO engine
-    logger.info("Loading prior ELO states...")
     sb_client = get_supabase_client()
-    initial_states = load_current_elo_states(sb_client)
+
+    if args.fresh:
+        logger.info("Fresh mode: all players starting at ELO 1500")
+        initial_states = {}
+    else:
+        logger.info("Loading prior ELO states...")
+        initial_states = load_current_elo_states(sb_client)
+
+    # Fetch projections for season boundary resets
+    logger.info("Fetching season projections for ELO resets...")
+    season_projections = _build_season_projections()
 
     re24 = RE24Baseline()
     park = ParkFactor()
-    batch = EloBatch(initial_states=initial_states, re24_baseline=re24, park_factor=park)
+    batch = EloBatch(
+        initial_states=initial_states, re24_baseline=re24, park_factor=park,
+        season_projections=season_projections,
+    )
 
     logger.info("Running ELO calculation...")
     batch.process(pa_df)
     logger.info(f"  {len(pa_df):,} PAs processed, {len(batch.daily_ohlc)} OHLC records")
 
     # 7. Upload ELO results
+    if args.fresh:
+        logger.info("Fresh mode: clearing existing ELO data...")
+        cur = conn.cursor()
+        cur.execute("DELETE FROM daily_ohlc;")
+        cur.execute("DELETE FROM player_elo;")
+        conn.commit()
+        cur.close()
+
     logger.info("Uploading player_elo...")
     upload_player_elo_psycopg2(conn, batch)
     logger.info("Uploading daily_ohlc...")
     upload_daily_ohlc_psycopg2(conn, batch.daily_ohlc)
 
     # 8. Run talent engine
-    logger.info("Loading prior talent states...")
-    initial_batters, initial_pitchers = load_current_talent_states(sb_client)
+    if args.fresh:
+        logger.info("Fresh mode: all talent states starting fresh")
+        initial_batters, initial_pitchers = {}, {}
+    else:
+        logger.info("Loading prior talent states...")
+        initial_batters, initial_pitchers = load_current_talent_states(sb_client)
     talent_batch = TalentBatch(initial_batters=initial_batters, initial_pitchers=initial_pitchers)
 
     logger.info("Running talent ELO calculation...")
@@ -340,6 +399,14 @@ def main():
     logger.info(f"  {len(talent_batch.talent_daily_ohlc)} talent OHLC records")
 
     # 9. Upload talent results
+    if args.fresh:
+        logger.info("Fresh mode: clearing existing talent data...")
+        cur = conn.cursor()
+        cur.execute("DELETE FROM talent_daily_ohlc;")
+        cur.execute("DELETE FROM talent_player_current;")
+        conn.commit()
+        cur.close()
+
     logger.info("Uploading talent_player_current...")
     upload_talent_player_psycopg2(conn, talent_batch)
     logger.info("Uploading talent_daily_ohlc...")

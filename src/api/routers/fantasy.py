@@ -94,6 +94,42 @@ async def team_elo(team_code: str):
     }
 
 
+@router.get("/team-elo/{team_code}/history")
+async def team_elo_history(team_code: str):
+    """Full season ELO history for a team (all games)."""
+    sb = get_supabase()
+    all_rows = []
+    page_size = 1000
+    offset = 0
+
+    while True:
+        resp = (
+            sb.table("team_elo")
+            .select("team_code,game_date,elo_before,elo_after,opponent_code,result,run_diff")
+            .eq("team_code", team_code.upper())
+            .order("game_date", desc=False)
+            .range(offset, offset + page_size - 1)
+            .execute()
+        )
+        rows = resp.data or []
+        all_rows.extend(rows)
+        if len(rows) < page_size:
+            break
+        offset += page_size
+
+    return [
+        {
+            "date": r["game_date"],
+            "eloBefore": r["elo_before"],
+            "eloAfter": r["elo_after"],
+            "opponent": r["opponent_code"],
+            "result": r["result"],
+            "runDiff": r["run_diff"],
+        }
+        for r in all_rows
+    ]
+
+
 @router.post("/roster")
 async def parse_roster(req: RosterRequest):
     """Parse pasted roster text, return structured entries."""

@@ -1,568 +1,215 @@
-# Fantasy Matchup Predictor — Pipeline Guide
+# Beers Fantasy Tool — How It Works
 
-Complete guide to running every part of the pipeline, from initial setup to daily automation to deploying a live site.
-
----
-
-## 1. Prerequisites
-
-| Requirement | Version | Purpose |
-|-------------|---------|---------|
-| Python | 3.11+ | Backend, ELO engines, data pipeline |
-| Node.js | 20+ | Frontend build and dev server |
-| npm | 10+ | Frontend package management |
-| Supabase project | Free tier works | PostgreSQL database + REST API |
-
-### Environment Variables
-
-Create `.env` in the project root (copy from `.env.example`):
-
-```bash
-cp .env.example .env
-```
-
-Required variables:
-
-| Variable | Example | Used By |
-|----------|---------|---------|
-| `SUPABASE_URL` | `https://abc123.supabase.co` | All backend scripts, FastAPI |
-| `SUPABASE_KEY` | `eyJhbGc...` (anon key) | All backend scripts, FastAPI |
-| `DATABASE_URL` | `postgresql://postgres.abc:PASS@aws-0-us-east-2.pooler.supabase.com:5432/postgres` | `bulk_load.py` (psycopg2 direct connection) |
-
-### Install Dependencies
-
-```bash
-# Python
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-
-# Frontend
-cd frontend
-npm install
-cd ..
-```
+This guide explains what you personally need to do, what runs on its own, and what you never have to touch.
 
 ---
 
-## 2. Database Setup
+## Quick Reference
 
-Run each migration in order in the **Supabase SQL Editor** (Dashboard → SQL Editor → New Query):
-
-| Migration | What It Creates |
-|-----------|----------------|
-| `scripts/migrations/001_create_tables.sql` | `players`, `plate_appearances`, `player_elo`, `elo_pa_detail`, `daily_ohlc` |
-| `scripts/migrations/002_split_elo.sql` | Splits ELO into `on_base_elo` and `power_elo` columns |
-| `scripts/migrations/003_k_modulation.sql` | K-factor scaling based on PA count |
-| `scripts/migrations/004_talent_schema.sql` | `talent_player_current`, `talent_pa_detail`, `talent_daily_ohlc` (9D talent system) |
-| `scripts/migrations/005_talent_rpc.sql` | RPC functions for talent radar queries |
-| `scripts/migrations/006_team_elo.sql` | `team_elo` table (FiveThirtyEight-style team ratings) |
+| | What | How often |
+|---|---|---|
+| **You do this** | Load historical data | Once (or when data looks wrong) |
+| **Automatic** | Daily stats update | Every day at 8am EST |
+| **Just use it** | The website | Whenever you want |
 
 ---
 
-## 3. Initial Data Load
+## Part 1: The Website
 
-This is a one-time process to populate the database with historical data.
+**Live URL:** https://beers-baseball-tool-fantasy.vercel.app
 
-### Step 1: Load Statcast Data + Compute Player ELO
+### What each tab does
 
-```bash
-python -m scripts.bulk_load
+| Tab | What it shows |
+|-----|--------------|
+| **Daily** | Today's hottest and coldest players by ELO change |
+| **Leaderboard** | All batters and pitchers ranked by ELO |
+| **Talent** | 9-dimension talent ratings with radar charts |
+| **Team ELO** | All 30 MLB teams ranked by team strength |
+| **Matchup** | Search any batter vs pitcher — see predicted outcome |
+| **Fantasy** | Paste your roster → get weekly projections and fantasy points |
+| **Guide** | Explanation of how the ELO system works |
+
+### Using the Fantasy tab
+
+1. Go to the **Fantasy** tab
+2. Paste your roster into the text box
+3. Click **Parse Roster**
+4. Select the week you want to project
+5. Click **Project Week**
+
+**Roster format that works** — paste directly in this style:
+
+```
+BATTERS
+A. Judge - NYY - (OF)
+F. Freeman - LAD - (1B)
+PITCHERS
+G. Cole - NYY - (SP)
+C. Sale - ATL - (SP)
+BENCH
+M. Trout - LAA - (OF)
 ```
 
-**What it does:**
-- Fetches 2025 Statcast data via pybaseball (monthly chunks)
-- Uploads plate appearances via psycopg2 (direct PostgreSQL, not REST — ~90 seconds vs 60+ minutes)
-- Computes player ELO and 9D talent ELO for every batter and pitcher
-- Generates daily OHLC candlestick data per player
-
-**Expected output:**
-```
-183,092 plate appearances loaded
-1,469 players tracked
-Date range: 2025-03-27 → 2025-09-28
-```
-
-### Step 2: Backfill Team ELO
-
-```bash
-python -m scripts.backfill_team_elo
-```
-
-**What it does:**
-- Reads game results from `plate_appearances` (deduces final scores)
-- Computes FiveThirtyEight-style team ELO (K=4, home-field advantage=24, MOV multiplier)
-- Uploads to `team_elo` table
-
-**Expected output:**
-```
-30 teams with ELO ratings
-NYY #1 (1561), COL #30 (1353)
-~2,430 game records
-```
-
-### Step 3: Verify
-
-```bash
-# Start the API
-uvicorn src.api.main:app --reload
-
-# Test endpoints
-curl http://localhost:8000/api/health
-curl http://localhost:8000/api/fantasy/team-elo/all
-curl http://localhost:8000/api/elo/leaderboard
-```
+Team names are not case-sensitive (`NYY`, `nyy`, `Nyy` all work). Positions go in parentheses. Section headers (`BATTERS`, `PITCHERS`, `BENCH`) are automatically skipped.
 
 ---
 
-## 4. Running the Application
+## Part 2: Loading Historical Data (you run this)
 
-### Backend (FastAPI)
+This is the only command you ever need to run yourself. You do it once to populate the database, and again if data ever looks wrong or missing.
 
-```bash
-uvicorn src.api.main:app --reload
+### When to run it
+
+- First time setting up
+- After the 2025→2026 season reset (to reload all history clean)
+- If player charts start at the wrong ELO (e.g. 1600 instead of 1500)
+
+### How to run it
+
+Open **PowerShell** (search for it in the Start menu), navigate to the project folder, and run:
+
+```powershell
+cd C:\Users\Jake\Documents\Python\Baseball\fantasy-matchup-predictor
+C:\python314\python.exe -m scripts.bulk_load --end-date 2025-09-28 --fresh
 ```
 
-Runs on `http://localhost:8000`. Interactive API docs at `http://localhost:8000/docs`.
+Change `2025-09-28` to the last day of the season you want to load.
 
-### Frontend (React + Vite)
+> **The `--fresh` flag** wipes any existing data and starts clean. This is important — running without it on data that already exists can corrupt player charts.
 
-```bash
-cd frontend
-npm run dev
+### What it does
+
+- Downloads every MLB plate appearance from Statcast (via Baseball Reference)
+- Calculates each player's ELO rating, game by game
+- Computes daily chart data (open/high/low/close ELO per player)
+- Saves everything to the database
+
+### How long it takes
+
+About **5–15 minutes** depending on your internet speed. You'll see progress in the terminal:
+
+```
+10:12:01 Fetching Statcast: 2025-03-27 → 2025-03-31
+10:12:15   48,291 regular season pitches
+10:12:15 Fetching Statcast: 2025-04-01 → 2025-04-30
+...
+10:18:43 BULK LOAD COMPLETE
+  Total PAs in DB: 183,092
+  Latest date: 2025-09-28
+  Players with ELO: 1,469
 ```
 
-Runs on `http://localhost:5173`. Vite proxies all `/api` requests to the FastAPI backend automatically.
+### After it finishes
 
-### Frontend Pages
-
-| Route | Page | Description |
-|-------|------|-------------|
-| `/` | Dashboard | Daily hot/cold players, league summary |
-| `/leaderboard` | Leaderboard | Player ELO rankings by position |
-| `/talent-leaderboard` | Talent | 9D talent rankings with radar charts |
-| `/player/:id` | Player Profile | Individual player detail + OHLC chart |
-| `/matchup` | Matchup | Interactive batter vs pitcher prediction |
-| `/fantasy` | Fantasy Dashboard | Paste roster → pick week → get projections |
-| `/fantasy/batters` | Batter Matchups | Full weekly batter grid (rows × days) |
-| `/fantasy/pitchers` | Pitcher Matchups | Pitcher start projections |
-| `/fantasy/matchup/:b/:p` | Matchup Detail | Single matchup deep dive with z-scores |
-| `/export` | Export | PDF report generation + download |
-| `/guide` | Guide | ELO system explainer |
+The website will automatically show the new data — no other steps needed.
 
 ---
 
-## 5. Daily Pipeline
+## Part 3: Daily Updates (automatic — nothing to do)
 
-The daily pipeline updates all data after each day's games. It runs automatically via GitHub Actions at 8am EST, or manually:
+Every day at **8:00 AM EST**, GitHub automatically runs the daily update. You don't need to do anything.
 
-```bash
-# Process yesterday's games (default)
-python -m scripts.run_daily
+### What it updates
 
-# Process a specific date
-python -m scripts.run_daily --date 2025-09-28
-```
+- Player ELO ratings (based on last night's games)
+- Team ELO ratings
+- Weekly schedule and probable pitchers
+- Player stat projections from FanGraphs
 
-### What Each Step Does
+### How to check if it ran
 
-| Step | Module | Action | Idempotent? |
-|------|--------|--------|-------------|
-| 1 | `daily_pipeline` | Fetch new PAs, update player ELO + 9D talent ELO | Yes (upsert) |
-| 2 | `backfill_team_elo` | Compute team ELO from game results for target date | Yes (upsert on conflict) |
-| 3 | `fangraphs_enricher` | Cache season batting + pitching stats as parquet files | Yes (skip if today's cache exists) |
-| 4 | `schedule_fetcher` | Fetch this week's MLB schedule + probable pitchers | Yes (overwrite) |
+1. Go to your GitHub repo: https://github.com/boerface16/fantasy-matchup-predictor
+2. Click the **Actions** tab at the top
+3. You'll see a list of recent runs — a green checkmark means it succeeded
 
-**Expected output:**
-```
-============================================================
-DAILY PIPELINE — 2025-09-28
-============================================================
+### If it failed (red X)
 
-Step 1/4: Player ELO + Talent update...
-  Status: success
-  PAs: 487, Players: 312
+1. Click the failed run to see what went wrong
+2. Most failures are temporary (Baseball Reference or MLB API was down)
+3. To re-run it manually: click **"Re-run all jobs"** button on that page
 
-Step 2/4: Team ELO update...
-  Team ELO updated
+### Manually trigger for a specific date
 
-Step 3/4: Fangraphs cache refresh...
-  Cached 542 batters, 389 pitchers
+If a day was missed, you can run it for any past date:
 
-Step 4/4: Schedule fetch...
-  Fetched 15 games for this week
-
-============================================================
-DAILY PIPELINE SUMMARY
-============================================================
-  [OK] player_elo: success
-  [OK] team_elo: success
-  [OK] fangraphs: success
-  [OK] schedule: success
-============================================================
-```
-
-### Other Daily Scripts
-
-```bash
-# Player ELO only (more granular control)
-python -m scripts.daily_elo --date 2025-09-28
-python -m scripts.daily_elo --range 2025-09-01 2025-09-28
-
-# Team ELO only
-python -m scripts.backfill_team_elo --date 2025-09-28
-python -m scripts.backfill_team_elo --range 2025-09-01 2025-09-28
-```
+1. Go to the **Actions** tab on GitHub
+2. Click **"Daily ELO Update"** in the left sidebar
+3. Click **"Run workflow"**
+4. Enter the date (e.g. `2025-09-15`) and click the green **"Run workflow"** button
 
 ---
 
-## 6. Weekly Cache Refresh
+## Part 4: The Website Stays Live Automatically
 
-Refreshes Fangraphs batting and pitching stat caches on demand:
+The website has two parts, both of which run 24/7 without you doing anything.
 
-```bash
-# Current season
-python -m scripts.run_weekly
+### Frontend (Vercel)
+- The website pages you see at `beers-baseball-tool-fantasy.vercel.app`
+- Auto-updates whenever code is pushed to GitHub
+- Free tier, no maintenance needed
 
-# Specific season
-python -m scripts.run_weekly --season 2025
-```
+### Backend (Render)
+- The server that fetches data from the database and sends it to the website
+- Auto-updates whenever code is pushed to GitHub
+- **Note:** Render may take 30–60 seconds to respond after being idle — this is normal on the free tier
 
-Cache files are stored in `.cache/` as parquet files (`batting_2025_2026-03-31.parquet`). Old caches are automatically cleaned up — only today's file is kept per stat type.
+### If the website is down
 
----
-
-## 7. Fantasy Projection Workflow
-
-This is the core user-facing feature. Here's the end-to-end flow:
-
-### Step 1: Paste Roster
-
-On the `/fantasy` page, paste your ESPN roster. Supported formats:
-
-**ESPN tab format** (copy from My Team page):
-```
-C	Salvador Perez, KC C
-1B	Vladimir Guerrero Jr., TOR 1B
-OF	Aaron Judge, NYY OF
-SP	Gerrit Cole, NYY SP
-```
-
-**CSV format:**
-```
-C,Salvador Perez,KC
-1B,Vladimir Guerrero Jr.,TOR
-```
-
-**Simple names** (one per line):
-```
-Aaron Judge
-Gerrit Cole
-```
-
-### Step 2: Click "Parse Roster"
-
-The frontend calls `POST /api/fantasy/roster` which:
-- Extracts slot, name, and team from each line
-- Fuzzy-matches names against the `players` table (handles typos/nicknames)
-- Returns matched `player_id`, `full_name`, `position`, and `team` for each entry
-
-### Step 3: Select Week & Project
-
-Pick a week (Monday-Sunday) using the week selector, then click **"Project Week"**.
-
-The backend (`POST /api/fantasy/weekly-projection`) runs the full pipeline:
-
-1. **Parse roster** → list of `RosterEntry` objects
-2. **Fetch schedule** → MLB games for that week with probable pitchers
-3. **Resolve opponents** → for each batter: which pitcher they face each day; for each pitcher: which team they face
-4. **Load ELO** → batch query `talent_player_current` for all relevant pitcher IDs
-5. **Predict matchups** → 3-stage decision tree per plate appearance:
-   - Stage 1: Softmax over BB / K / BIP (discipline/command + contact/stuff z-scores)
-   - Stage 2: Given BIP → hit probability (contact vs BIP-suppression)
-   - Stage 3: Given hit → XBH split (1B/2B/3B/HR from power z-score)
-6. **Calculate fantasy points** → apply ESPN scoring weights (TB, R, RBI, BB, SB, SO for batters; IP, K, W, SV, HD, H, ER, BB, L for pitchers)
-
-### Step 4: View Results
-
-The dashboard shows:
-- **Points summary** — total, batter, pitcher breakdown
-- **Batter grid** — rows per batter, columns per day, cells show opponent + projected points
-- **Pitcher grid** — starts, opponents, projected points
-- **Team ELO rankings** — all 30 teams sorted by current ELO
-
-Click any matchup cell to see the full prediction breakdown on the detail page.
-
-### Step 5: Drill Down
-
-- `/fantasy/batters` — full-width batter grid with color-coded wOBA cells
-- `/fantasy/pitchers` — pitcher projections with start details
-- `/fantasy/matchup/:batterId/:pitcherId` — single matchup showing z-score differentials, outcome probabilities, expected wOBA, and fantasy points
+1. Check **Render**: go to your Render dashboard and look for the `fantasy-matchup-api` service — it should say "Live"
+2. Check **Vercel**: go to your Vercel dashboard — deployments should show "Ready"
+3. Both platforms send email alerts if something goes down
 
 ---
 
-## 8. PDF Export
+## Part 5: Troubleshooting
 
-### Via Frontend
+### Website shows no data / blank pages
 
-1. Navigate to `/export`
-2. Paste your ESPN roster
-3. Select week start date
-4. Click **"Generate PDF"**
-5. PDF downloads automatically as `fantasy-report-{date}.pdf`
+**Most likely:** Render is starting up (takes up to 60 seconds on first request after being idle). Wait a minute and refresh.
 
-### Via API
+**If still blank:** Check the Render dashboard to make sure the service is running.
 
-```bash
-curl -X POST http://localhost:8000/api/fantasy/export/pdf \
-  -H "Content-Type: application/json" \
-  -d '{"roster_text": "OF\tAaron Judge, NYY OF\nSP\tGerrit Cole, NYY SP", "ref_date": "2025-09-22"}' \
-  -o fantasy-report.pdf
+### Data looks stale or outdated
+
+The daily update runs at 8am EST. If it's past 9am and data hasn't updated:
+
+1. Check the GitHub Actions tab for a failed run
+2. Manually trigger the workflow (see Part 3)
+
+### Player chart starts at 1600 instead of 1500
+
+This means the historical data was loaded twice and got corrupted. Fix it by re-running the bulk load with `--fresh`:
+
+```powershell
+C:\python314\python.exe -m scripts.bulk_load --end-date 2025-09-28 --fresh
 ```
 
-### PDF Contents
+### Roster not parsing correctly
 
-- **Title page** — week range + generation date
-- **Summary table** — total / batter / pitcher projected points
-- **Batter projections** — sorted by total points, with per-game matchup details
-- **Pitcher projections** — sorted by total points, with start details
-- **Team ELO rankings** — all 30 teams ranked
-
----
-
-## 9. GitHub Actions Automation
-
-The daily pipeline runs automatically via GitHub Actions.
-
-### Setup
-
-1. Push the repo to GitHub
-2. Go to **Settings → Secrets and variables → Actions**
-3. Add these repository secrets:
-
-| Secret | Value |
-|--------|-------|
-| `SUPABASE_URL` | `https://your-project.supabase.co` |
-| `SUPABASE_KEY` | Your Supabase anon key |
-| `DATABASE_URL` | `postgresql://postgres.xxx:PASS@host:5432/postgres` |
-
-### Schedule
-
-The workflow (`.github/workflows/daily_update.yml`) runs:
-- **Automatically**: Every day at **8:00 AM EST** (1:00 PM UTC)
-- **Manually**: Click **"Run workflow"** in the Actions tab, optionally specifying a date
-
-### Resource Usage
-
-- ~5 minutes per run
-- ~150 min/month (well within GitHub Actions free tier of 2,000 min/month)
-- Built-in email notification on failure
-
----
-
-## 10. Testing
-
-```bash
-# Run all 112 tests
-python -m pytest tests/ -q
-
-# Verbose output
-python -m pytest tests/ -v
-
-# Specific module
-python -m pytest tests/test_roster_parser.py
-
-# Filter by name
-python -m pytest -k "weekly"
+Make sure your roster format uses dashes and parentheses:
+```
+Player Name - TEAM - (POSITION)
 ```
 
-### Test Inventory
+Team abbreviations must be standard MLB codes (`NYY`, `LAD`, `BOS`, etc.) — case doesn't matter.
 
-| Test File | Module | Tests |
-|-----------|--------|-------|
-| `test_team_elo_engine.py` | Team ELO engine | 20 |
-| `test_matchup_predictor_py.py` | 3-stage PA predictor | 24 |
-| `test_roster_parser.py` | Roster parsing + fuzzy match | 11 |
-| `test_schedule_fetcher.py` | MLB Stats API schedule | 9 |
-| `test_opponent_resolver.py` | Roster × schedule resolution | 7 |
-| `test_elo_lookup.py` | Batch talent ELO queries | 7 |
-| `test_fangraphs_enricher.py` | pybaseball cache wrapper | 14 |
-| `test_fantasy_calculator.py` | ESPN points calculation | 12 |
-| `test_weekly_projection.py` | Full orchestration | 8 |
+### Error: "No module named X"
 
-All tests use mocks for external services (Supabase, MLB Stats API, pybaseball) and run without network access.
+Run this once to install all dependencies on Python 3.14:
 
----
-
-## 11. Deploying to a Live Website
-
-### Option A: Railway (Recommended)
-
-[Railway](https://railway.app) is the simplest option — it supports Python + Node in one project, has a free tier, and auto-deploys from GitHub.
-
-**Steps:**
-
-1. Push repo to GitHub
-2. Sign up at [railway.app](https://railway.app) and connect your GitHub repo
-3. Railway auto-detects Python — add a `Procfile`:
-   ```
-   web: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT
-   ```
-4. Add environment variables in Railway dashboard:
-   - `SUPABASE_URL`, `SUPABASE_KEY`, `DATABASE_URL`
-5. For the frontend, build static assets and serve from FastAPI:
-   ```bash
-   cd frontend && npm run build
-   ```
-   Then mount the `frontend/dist/` directory in FastAPI (see "Serving Frontend from FastAPI" below)
-6. Railway assigns a URL like `your-app.up.railway.app` — add a custom domain in settings if desired
-
-**Cost:** Free tier includes 500 hours/month + 100 GB bandwidth. Hobby plan ($5/month) for always-on.
-
-### Option B: Render
-
-[Render](https://render.com) is similar to Railway with a generous free tier.
-
-**Steps:**
-
-1. Push repo to GitHub
-2. Create a **Web Service** on Render, connect your repo
-3. Set build command: `pip install -r requirements.txt && cd frontend && npm install && npm run build`
-4. Set start command: `uvicorn src.api.main:app --host 0.0.0.0 --port $PORT`
-5. Add environment variables in Render dashboard
-6. Render assigns a URL like `your-app.onrender.com`
-
-**Note:** Render free tier spins down after 15 minutes of inactivity (cold starts take ~30 seconds).
-
-### Option C: Vercel (Frontend) + Railway (Backend)
-
-Best if you want fast global CDN for the frontend:
-
-1. Deploy frontend to [Vercel](https://vercel.com): `cd frontend && vercel`
-2. Deploy backend to Railway (see Option A)
-3. Update `frontend/.env.production` with the Railway API URL:
-   ```
-   VITE_API_URL=https://your-backend.up.railway.app
-   ```
-4. Update `apiClient.ts` to use `VITE_API_URL` as the base URL in production
-5. Update CORS in `src/api/main.py` to allow your Vercel domain
-
-### Option D: VPS (Full Control)
-
-For maximum control, deploy to a VPS (DigitalOcean, Linode, Hetzner):
-
-```bash
-# On the server
-git clone your-repo
-cd fantasy-matchup-predictor
-pip install -r requirements.txt
-cd frontend && npm install && npm run build && cd ..
-
-# Run with gunicorn + uvicorn workers
-pip install gunicorn
-gunicorn src.api.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
-
-# Use nginx as reverse proxy + serve frontend static files
-# Use systemd to keep the process running
-# Use certbot for HTTPS
+```powershell
+C:\python314\python.exe -m pip install -r requirements.txt
 ```
 
-### Comparison
+### bulk_load fails with "connection refused" or database error
 
-| | Railway | Render | Vercel + Railway | VPS |
-|--|---------|--------|------------------|-----|
-| **Ease of setup** | Easiest | Easy | Medium | Hardest |
-| **Free tier** | 500 hrs/mo | 750 hrs/mo (cold starts) | Generous | No |
-| **Custom domain** | Yes | Yes | Yes | Yes |
-| **Auto-deploy** | Yes (GitHub) | Yes (GitHub) | Yes (GitHub) | Manual or CI |
-| **Always-on** | Hobby $5/mo | Paid plans | Backend: $5/mo | $4-6/mo |
-| **Best for** | Quick launch | Budget | Performance | Full control |
+Check that your `.env` file in the project folder has these three lines filled in:
 
-### Serving Frontend from FastAPI (Single-Origin Deploy)
-
-For Railway/Render, serve the built frontend from FastAPI to avoid CORS issues:
-
-```python
-# Add to src/api/main.py after router registration
-from fastapi.staticfiles import StaticFiles
-import os
-
-# Serve frontend build (after npm run build)
-frontend_dir = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
-if os.path.isdir(frontend_dir):
-    app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
+```
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-anon-key
+DATABASE_URL=postgresql://postgres.xxxxx:PASSWORD@host:5432/postgres
 ```
 
-Build the frontend before deploying:
-```bash
-cd frontend && npm run build
-```
-
-This serves the React app at `/` and the API at `/api/*` from the same origin — no CORS configuration needed.
-
-### Production CORS
-
-If deploying frontend and backend separately, update `src/api/main.py`:
-
-```python
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",        # Dev
-        "https://your-app.vercel.app",  # Production frontend
-        "https://yourdomain.com",       # Custom domain
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-```
-
----
-
-## 12. Troubleshooting
-
-### Stale Fangraphs Cache
-
-If stats seem outdated, force a cache refresh:
-```bash
-# Delete today's cache files
-rm .cache/batting_*.parquet .cache/pitching_*.parquet
-
-# Re-fetch
-python -m scripts.run_weekly
-```
-
-### pybaseball Rate Limits
-
-Baseball Reference limits to ~10 requests/minute. If you see 429 errors:
-- Wait 60 seconds and retry
-- The daily parquet cache prevents repeated calls — once cached, no more API calls that day
-
-### Missing Environment Variables
-
-If scripts fail with `SUPABASE_URL not set`:
-- Ensure `.env` exists in the project root
-- Ensure `python-dotenv` is installed (`pip install python-dotenv`)
-- Scripts load `.env` automatically via `dotenv.load_dotenv()`
-
-### Database Connection Issues
-
-If `bulk_load.py` fails with connection errors:
-- Check `DATABASE_URL` format: `postgresql://postgres.PROJECT_REF:PASSWORD@HOST:5432/postgres`
-- Ensure password is URL-encoded (special characters like `@` or `#` need encoding)
-- Try connecting manually: `psql $DATABASE_URL`
-
-### Frontend Proxy Not Working
-
-If the frontend can't reach the API:
-- Ensure FastAPI is running on port 8000: `uvicorn src.api.main:app --reload`
-- Check `frontend/vite.config.ts` has the proxy configured for `/api`
-- The proxy only works in dev mode (`npm run dev`), not in production builds
-
-### GitHub Actions Failures
-
-- Check the Actions tab in your GitHub repo for logs
-- Verify all 3 secrets are set: `SUPABASE_URL`, `SUPABASE_KEY`, `DATABASE_URL`
-- Use **"Run workflow"** button to manually trigger and test
-- GitHub sends email notifications on failure automatically
+If you're not sure where to find these, check the Supabase dashboard under **Settings → API** (for `SUPABASE_URL` and `SUPABASE_KEY`) and **Settings → Database → Connection string** (for `DATABASE_URL`).

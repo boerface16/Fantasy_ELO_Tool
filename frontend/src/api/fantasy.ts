@@ -2,6 +2,7 @@ import { apiFetch } from '../lib/apiClient';
 import type {
   TeamElo,
   TeamEloDetail,
+  TeamEloTrendEntry,
   RosterParseResult,
   ScheduleResult,
   WeeklyProjection,
@@ -14,6 +15,10 @@ export async function getAllTeamElos(): Promise<TeamElo[]> {
 
 export async function getTeamElo(teamCode: string): Promise<TeamEloDetail> {
   return apiFetch(`/api/fantasy/team-elo/${teamCode}`);
+}
+
+export async function getTeamEloHistory(teamCode: string): Promise<TeamEloTrendEntry[]> {
+  return apiFetch(`/api/fantasy/team-elo/${teamCode}/history`);
 }
 
 export async function parseRoster(rosterText: string): Promise<RosterParseResult> {

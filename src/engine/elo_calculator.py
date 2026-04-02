@@ -63,6 +63,38 @@ class PlayerEloState:
         """하위 호환용 총 PA."""
         return self.batting_pa + self.pitching_pa
 
+    def reset_season(
+        self,
+        projected_batting: float | None = None,
+        projected_pitching: float | None = None,
+    ) -> None:
+        """Apply FiveThirtyEight-style season reset.
+
+        Formula: new = 0.67 * projection + 0.33 * (final + 1/3 * (1500 - final))
+        Without projection: new = final + 1/3 * (1500 - final)
+        """
+        PROJECTION_WEIGHT = 0.67
+        PRIOR_WEIGHT = 0.33
+        REGRESSION = 1 / 3
+
+        if self.batting_pa > 0:
+            regressed = self.batting_elo + REGRESSION * (INITIAL_ELO - self.batting_elo)
+            if projected_batting is not None:
+                self.batting_elo = PROJECTION_WEIGHT * projected_batting + PRIOR_WEIGHT * regressed
+            else:
+                self.batting_elo = regressed
+            self.batting_pa = 0
+
+        if self.pitching_pa > 0:
+            regressed = self.pitching_elo + REGRESSION * (INITIAL_ELO - self.pitching_elo)
+            if projected_pitching is not None:
+                self.pitching_elo = PROJECTION_WEIGHT * projected_pitching + PRIOR_WEIGHT * regressed
+            else:
+                self.pitching_elo = regressed
+            self.pitching_pa = 0
+
+        self.cumulative_rv = 0.0
+
     def apply_batting_delta(self, delta: float) -> None:
         """타자 ELO 변화 적용 (하한선 보장)."""
         self.batting_elo = max(MIN_ELO, self.batting_elo + delta)

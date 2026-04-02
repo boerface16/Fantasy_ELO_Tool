@@ -53,19 +53,22 @@ class EloBatch:
     """V5.3 ELO 배치 프로세서."""
 
     def __init__(self, k_factor: float = None, re24_baseline=None, park_factor=None,
-                 initial_states: dict[int, PlayerEloState] = None):
+                 initial_states: dict[int, PlayerEloState] = None,
+                 season_projections: dict[int, tuple[float | None, float | None]] = None):
         self.calc = EloCalculator(
             k_factor=k_factor or K_FACTOR,
             re24_baseline=re24_baseline,
             park_factor_obj=park_factor,
         )
         self.players: dict[int, PlayerEloState] = dict(initial_states) if initial_states else {}
+        self.season_projections = season_projections or {}
         self.pa_details: list[dict] = []
         self.daily_ohlc: list[DailyOhlc] = []
         self._active_player_ids: set[int] = set()
 
         # OHLC 추적용 내부 상태 — 키: (player_id, role)
         self._current_date: Optional[str] = None
+        self._current_year: Optional[int] = None
         self._day_open: dict[tuple[int, str], float] = {}
         self._day_high: dict[tuple[int, str], float] = {}
         self._day_low: dict[tuple[int, str], float] = {}
@@ -94,6 +97,17 @@ class EloBatch:
             self._day_low[key] = min(self._day_low[key], elo)
         if key in self._day_pa:
             self._day_pa[key] += 1
+
+    def _apply_season_reset(self, new_year: int):
+        """Apply FiveThirtyEight-style season reset to all players."""
+        logger.info(f"  Season boundary detected — resetting base ELO for {new_year}")
+        reset_count = 0
+        for pid, state in self.players.items():
+            if state.batting_pa > 0 or state.pitching_pa > 0:
+                proj_bat, proj_pit = self.season_projections.get(pid, (None, None))
+                state.reset_season(projected_batting=proj_bat, projected_pitching=proj_pit)
+                reset_count += 1
+        logger.info(f"  Reset {reset_count} players for {new_year} season")
 
     def _finalize_day(self, game_date_str: str):
         """하루 종료 시 OHLC 레코드 생성 (role별)."""
@@ -129,10 +143,17 @@ class EloBatch:
         for idx, row in pa_df.iterrows():
             game_date_str = str(row['game_date'])[:10]
 
-            # 날짜 변경 감지 → OHLC 저장
+            # 날짜 변경 감지 → OHLC 저장 + season boundary check
             if self._current_date is not None and game_date_str != self._current_date:
                 self._finalize_day(self._current_date)
+
+                # Season boundary: year change triggers ELO reset
+                new_year = int(game_date_str[:4])
+                if self._current_year is not None and new_year > self._current_year:
+                    self._apply_season_reset(new_year)
+
             self._current_date = game_date_str
+            self._current_year = int(game_date_str[:4])
 
             batter_id = int(row['batter_id'])
             pitcher_id = int(row['pitcher_id'])

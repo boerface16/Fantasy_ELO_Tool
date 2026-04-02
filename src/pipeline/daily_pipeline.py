@@ -234,6 +234,47 @@ def _apply_talent_season_reset(
     )
 
 
+def _apply_base_elo_season_reset(
+    states: dict[int, PlayerEloState],
+    new_season: int,
+) -> None:
+    """Apply FiveThirtyEight-style reset to base ELO states at season boundary."""
+    logger.info(f"Season boundary detected — resetting base ELO for {new_season}")
+
+    # Fetch projections and build composite projection per player
+    bat_proj_elo = {}
+    pit_proj_elo = {}
+    try:
+        bat_df = fetch_player_projections("bat")
+        if bat_df is not None:
+            for pid, elo_arr in projection_to_batter_elo(bat_df).items():
+                bat_proj_elo[pid] = float(np.mean(elo_arr))
+    except Exception as e:
+        logger.warning(f"Failed to fetch batter projections for base ELO: {e}")
+
+    try:
+        pit_df = fetch_player_projections("pit")
+        if pit_df is not None:
+            for pid, elo_arr in projection_to_pitcher_elo(pit_df).items():
+                pit_proj_elo[pid] = float(np.mean(elo_arr))
+    except Exception as e:
+        logger.warning(f"Failed to fetch pitcher projections for base ELO: {e}")
+
+    reset_count = 0
+    for pid, state in states.items():
+        if state.batting_pa > 0 or state.pitching_pa > 0:
+            state.reset_season(
+                projected_batting=bat_proj_elo.get(pid),
+                projected_pitching=pit_proj_elo.get(pid),
+            )
+            reset_count += 1
+
+    logger.info(
+        f"  Base ELO reset: {reset_count} players, "
+        f"{len(bat_proj_elo)} batter projections, {len(pit_proj_elo)} pitcher projections"
+    )
+
+
 def delete_date_data(client, target_date: date):
     """날짜별 기존 데이터 삭제 (idempotent 재처리용).
 
@@ -391,6 +432,10 @@ def run_daily_pipeline(target_date: date = None, force: bool = False) -> dict:
 
     # 6. 기존 ELO 상태 로드
     initial_states = load_current_elo_states(client)
+
+    # Season boundary: apply base ELO reset if entering a new year
+    if _detect_season_boundary(client, target_date):
+        _apply_base_elo_season_reset(initial_states, target_date.year)
 
     # 7. 증분 ELO 계산
     logger.info("  Running incremental ELO calculation...")

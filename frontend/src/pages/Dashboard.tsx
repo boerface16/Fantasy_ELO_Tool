@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import DatePicker from '../components/dashboard/DatePicker';
 import HotColdSection from '../components/dashboard/HotColdSection';
+import FantasyHotColdSection from '../components/dashboard/FantasyHotColdSection';
 import LeagueSummary from '../components/dashboard/LeagueSummary';
 import { useHotPlayers, useColdPlayers, useLeagueSummary, useLatestDate, useSeasonMeta } from '../hooks/useElo';
 
@@ -55,6 +56,12 @@ export default function Dashboard() {
         players={coldPlayers ?? []}
         isLoading={coldLoading}
       />
+
+      {/* Fantasy Leaders */}
+      {selectedDate && <FantasyHotColdSection type="hot" date={selectedDate} />}
+
+      {/* Fantasy Losers */}
+      {selectedDate && <FantasyHotColdSection type="cold" date={selectedDate} />}
 
       {/* League Summary */}
       <LeagueSummary

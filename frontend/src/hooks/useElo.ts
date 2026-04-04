@@ -90,3 +90,27 @@ export function usePlayerGames(playerId: string, role: string = 'BATTING', limit
     staleTime: 60_000,
   });
 }
+
+export function useHotFantasy(date: string, role: string) {
+  return useQuery({
+    queryKey: ['hotFantasy', date, role],
+    queryFn: () => eloApi.getHotFantasy(date, role),
+    enabled: !!date,
+  });
+}
+
+export function useColdFantasy(date: string, role: string) {
+  return useQuery({
+    queryKey: ['coldFantasy', date, role],
+    queryFn: () => eloApi.getColdFantasy(date, role),
+    enabled: !!date,
+  });
+}
+
+export function useFantasyLeaderboard(role: string, season: number, page: number, limit: number) {
+  return useQuery({
+    queryKey: ['fantasyLeaderboard', role, season, page],
+    queryFn: () => eloApi.getFantasyLeaderboard(role, season, page, limit),
+    staleTime: 60_000,
+  });
+}

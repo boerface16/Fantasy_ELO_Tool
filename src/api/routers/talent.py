@@ -26,6 +26,33 @@ async def player_talent_radar(player_id: int):
     return {"playerId": player_id, "dimensions": dimensions}
 
 
+@router.get("/players/{player_id}/ohlc")
+async def player_talent_ohlc(player_id: int, talent_type: str = Query(...)):
+    sb = get_supabase()
+    resp = (
+        sb.table("talent_daily_ohlc")
+        .select("game_date, open_elo, high_elo, low_elo, close_elo, delta, total_pa, talent_type")
+        .eq("player_id", player_id)
+        .eq("talent_type", talent_type)
+        .eq("elo_type", "SEASON")
+        .order("game_date")
+        .execute()
+    )
+    return [
+        {
+            "game_date": r["game_date"],
+            "open":      r["open_elo"],
+            "high":      r["high_elo"],
+            "low":       r["low_elo"],
+            "close":     r["close_elo"],
+            "delta":     r["delta"],
+            "total_pa":  r["total_pa"],
+            "role":      talent_type,
+        }
+        for r in resp.data or []
+    ]
+
+
 @router.get("/leaderboard")
 async def talent_leaderboard(
     talent_type: str = Query(..., alias="type"),

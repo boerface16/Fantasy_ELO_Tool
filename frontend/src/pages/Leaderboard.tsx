@@ -1,25 +1,33 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useLeaderboard, useSeasonMeta } from '../hooks/useElo';
+import { useLeaderboard, useSeasonMeta, useFantasyLeaderboard } from '../hooks/useElo';
 import LeaderboardTable from '../components/leaderboard/LeaderboardTable';
+import FantasyLeaderboardTable from '../components/leaderboard/FantasyLeaderboardTable';
 
-type PositionTab = 'batter' | 'pitcher';
+type PositionTab = 'batter' | 'pitcher' | 'batter-fantasy' | 'pitcher-fantasy';
 
-const ESTIMATED_TOTAL = { pitcher: 580, batter: 540 };
+const ESTIMATED_TOTAL = { pitcher: 580, batter: 540, 'batter-fantasy': 540, 'pitcher-fantasy': 580 };
 
 export default function Leaderboard() {
   const [position, setPosition] = useState<PositionTab>('batter');
   const [page, setPage] = useState(1);
   const limit = 20;
 
-  const { data: players = [], isLoading } = useLeaderboard({ position, page, limit });
+  const isFantasyTab = position === 'batter-fantasy' || position === 'pitcher-fantasy';
+  const fantasyRole = position === 'pitcher-fantasy' ? 'pitcher' : 'batter';
+  const eloPosition = isFantasyTab ? 'batter' : position;
+
+  const { data: players = [], isLoading } = useLeaderboard({ position: eloPosition, page, limit });
+  const { data: fantasyPlayers = [], isLoading: fantasyLoading } = useFantasyLeaderboard(fantasyRole, 2026, page, limit);
   const { data: seasonMeta } = useSeasonMeta();
 
   useEffect(() => {
     setPage(1);
   }, [position]);
 
-  const isLastPage = players.length < limit;
+  const activeData = isFantasyTab ? fantasyPlayers : players;
+
+  const isLastPage = activeData.length < limit;
   const estimatedTotalPages = Math.ceil(ESTIMATED_TOTAL[position] / limit);
   const totalPages = isLastPage ? page : Math.max(page + 1, estimatedTotalPages);
 
@@ -45,29 +53,38 @@ export default function Leaderboard() {
       </div>
 
       {/* Position Tabs */}
-      <div className="flex gap-2">
-        {(['batter', 'pitcher'] as const).map((tab) => (
+      <div className="flex flex-wrap gap-2">
+        {(['batter', 'pitcher', 'batter-fantasy', 'pitcher-fantasy'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => { setPosition(tab); setPage(1); }}
-            className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+            className={`px-4 py-2 rounded-lg font-semibold transition-all text-sm ${
               position === tab
                 ? 'bg-primary text-white'
                 : 'bg-white/10 text-gray-400 hover:bg-white/15'
             }`}
           >
-            {tab === 'pitcher' ? 'Pitcher' : 'Batter'}
+            {{ batter: 'Batter', pitcher: 'Pitcher', 'batter-fantasy': 'Batter Fantasy', 'pitcher-fantasy': 'Pitcher Fantasy' }[tab]}
           </button>
         ))}
       </div>
 
       {/* Table */}
-      <LeaderboardTable
-        players={players}
-        isLoading={isLoading}
-        startRank={(page - 1) * limit + 1}
-        position={position}
-      />
+      {isFantasyTab ? (
+        <FantasyLeaderboardTable
+          players={fantasyPlayers}
+          isLoading={fantasyLoading}
+          startRank={(page - 1) * limit + 1}
+          role={fantasyRole}
+        />
+      ) : (
+        <LeaderboardTable
+          players={players}
+          isLoading={isLoading}
+          startRank={(page - 1) * limit + 1}
+          position={position as 'batter' | 'pitcher'}
+        />
+      )}
 
       {/* Pagination */}
       <div className="flex items-center justify-center gap-1 py-4">

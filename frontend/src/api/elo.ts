@@ -1,5 +1,5 @@
 import { apiFetch } from '../lib/apiClient';
-import type { HotColdPlayer, PlayerElo, Player, DailyOhlc, PlayerStats, LeagueSummary, PlayerSearchResult, SeasonMeta } from '../types/elo';
+import type { HotColdPlayer, PlayerElo, Player, DailyOhlc, PlayerStats, LeagueSummary, PlayerSearchResult, SeasonMeta, FantasyHotColdPlayer, FantasyLeaderboardPlayer } from '../types/elo';
 
 export async function getHotPlayers(date: string): Promise<HotColdPlayer[]> {
   return apiFetch(`/api/elo/hot-players?date=${date}`);
@@ -83,6 +83,23 @@ export interface PlayerGameEntry {
     ip?: number;
     h?: number;
   };
+}
+
+export async function getHotFantasy(date: string, role: string): Promise<FantasyHotColdPlayer[]> {
+  return apiFetch(`/api/elo/hot-fantasy?date=${date}&role=${role}`);
+}
+
+export async function getColdFantasy(date: string, role: string): Promise<FantasyHotColdPlayer[]> {
+  return apiFetch(`/api/elo/cold-fantasy?date=${date}&role=${role}`);
+}
+
+export async function getFantasyLeaderboard(
+  role: string,
+  season: number,
+  page: number,
+  limit: number,
+): Promise<FantasyLeaderboardPlayer[]> {
+  return apiFetch(`/api/elo/fantasy-leaderboard?role=${role}&season=${season}&page=${page}&limit=${limit}`);
 }
 
 export async function getPlayerGames(

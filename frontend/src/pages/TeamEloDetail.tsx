@@ -4,7 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { createChart, LineSeries } from 'lightweight-charts';
 import type { IChartApi, LineData, Time } from 'lightweight-charts';
 import { useTeamElo, useTeamEloHistory } from '../hooks/useFantasy';
-import { TEAM_COLORS } from '../utils/teamColors';
+import { TEAM_COLORS, getChartColor } from '../utils/teamColors';
 
 export default function TeamEloDetail() {
   const { teamCode = '' } = useParams<{ teamCode: string }>();
@@ -14,7 +14,7 @@ export default function TeamEloDetail() {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
 
-  const color = TEAM_COLORS[teamCode]?.primary ?? '#3B82F6';
+  const color = getChartColor(teamCode);
 
   useEffect(() => {
     if (!chartContainerRef.current || history.length === 0) return;

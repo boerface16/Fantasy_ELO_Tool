@@ -70,6 +70,24 @@ export interface SeasonMeta {
   endDate: string;
 }
 
+export interface FantasyHotColdPlayer {
+  player_id: number;
+  fantasy_points: number;
+  total_pa: number;
+  full_name: string;
+  team: string;
+  position: string;
+}
+
+export interface FantasyLeaderboardPlayer {
+  player_id: number;
+  full_name: string;
+  team: string;
+  position: string;
+  total_pts: number;
+  total_pa: number;
+}
+
 export type EloTier = 'elite' | 'high' | 'above' | 'average' | 'below' | 'low' | 'cold';
 
 export function getEloTier(elo: number): EloTier {

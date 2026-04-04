@@ -46,7 +46,7 @@ export const BATTER_TALENTS: TalentMeta[] = [
   { type: 'contact', dbType: 'contact', label: 'Contact', icon: 'Hand', role: 'batter' },
   { type: 'power', dbType: 'power', label: 'Power', icon: 'Zap', role: 'batter' },
   { type: 'discipline', dbType: 'discipline', label: 'Discipline', icon: 'Eye', role: 'batter' },
-  // speed 비활성화 — DB 데이터는 유지, 프론트에서 미표시
+  { type: 'speed', dbType: 'speed', label: 'Speed', icon: 'Gauge', role: 'batter' },
   { type: 'clutch', dbType: 'clutch', label: 'Clutch', icon: 'Trophy', role: 'batter' },
 ];
 

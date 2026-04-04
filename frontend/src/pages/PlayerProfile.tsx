@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, TrendingUp, TrendingDown } from 'lucide-react';
 import EloCandlestickChart from '../components/player/EloCandlestickChart';
 import { getEloTier, getEloTierColor } from '../types/elo';
 import { getTeamBorderColor } from '../utils/teamColors';
 import { usePlayerElo, usePlayerOhlc, usePlayerStats, usePlayerGames } from '../hooks/useElo';
+import { usePlayerTalentOhlc } from '../hooks/useTalent';
+import { BATTER_TALENTS, PITCHER_TALENTS } from '../types/talent';
 import TeamLogo from '../components/common/TeamLogo';
 import TalentCardSection from '../components/player/TalentCardSection';
 import type { PlayerGameEntry } from '../api/elo';
@@ -116,11 +118,27 @@ function LastGamesTable({ games, role }: { games: PlayerGameEntry[]; role: RoleT
 }
 
 function RoleSection({ playerId, role }: { playerId: string; role: RoleTab }) {
+  const [eloView, setEloView] = useState<string>('main');
+
+  // Reset to main ELO when role changes (two-way players)
+  useEffect(() => { setEloView('main'); }, [role]);
+
   const { data: ohlcData, isLoading: ohlcLoading } = usePlayerOhlc(playerId, role);
+  const { data: talentOhlcData, isLoading: talentOhlcLoading } = usePlayerTalentOhlc(
+    playerId,
+    eloView !== 'main' ? eloView : '',
+  );
   const { data: stats, isLoading: statsLoading } = usePlayerStats(playerId, role);
   const { data: recentGames, isLoading: gamesLoading } = usePlayerGames(playerId, role, 5);
 
-  if (ohlcLoading || statsLoading) {
+  const talentList = role === 'PITCHING' ? PITCHER_TALENTS : BATTER_TALENTS;
+  const chartData = eloView === 'main' ? (ohlcData ?? []) : (talentOhlcData ?? []);
+  const chartTitle = eloView === 'main'
+    ? `${role === 'BATTING' ? 'Batting' : 'Pitching'} ELO History`
+    : `${talentList.find(t => t.dbType === eloView)?.label ?? eloView} ELO History`;
+  const chartLoading = eloView === 'main' ? ohlcLoading : talentOhlcLoading;
+
+  if ((ohlcLoading && eloView === 'main') || statsLoading) {
     return (
       <div className="space-y-6">
         <div className="bg-bg-card rounded-lg shadow-sm p-6 h-[400px] animate-pulse">
@@ -133,10 +151,36 @@ function RoleSection({ playerId, role }: { playerId: string; role: RoleTab }) {
   return (
     <div className="space-y-6">
       <div className="bg-bg-card rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold mb-4">
-          {role === 'BATTING' ? 'Batting' : 'Pitching'} ELO History
-        </h3>
-        <EloCandlestickChart data={ohlcData ?? []} height={400} />
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold">{chartTitle}</h3>
+        </div>
+        {/* ELO view toggle buttons */}
+        <div className="flex flex-wrap gap-1 mb-4">
+          <button
+            onClick={() => setEloView('main')}
+            className={`px-3 py-1 rounded text-xs font-semibold transition-all ${
+              eloView === 'main' ? 'bg-primary text-white' : 'bg-white/10 text-gray-400 hover:bg-white/15'
+            }`}
+          >
+            Main ELO
+          </button>
+          {talentList.map((t) => (
+            <button
+              key={t.type}
+              onClick={() => setEloView(t.dbType)}
+              className={`px-3 py-1 rounded text-xs font-semibold transition-all ${
+                eloView === t.dbType ? 'bg-primary text-white' : 'bg-white/10 text-gray-400 hover:bg-white/15'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        {chartLoading ? (
+          <div className="h-[400px] bg-white/10 rounded animate-pulse" />
+        ) : (
+          <EloCandlestickChart data={chartData} height={400} />
+        )}
       </div>
 
       {stats && (

@@ -1,5 +1,6 @@
 import { apiFetch } from '../lib/apiClient';
 import type { PlayerTalentRadar, TalentLeaderboardPlayer } from '../types/talent';
+import type { DailyOhlc } from '../types/elo';
 
 export async function getPlayerTalentRadar(playerId: string): Promise<PlayerTalentRadar> {
   return apiFetch(`/api/talent/players/${playerId}/radar`);
@@ -10,6 +11,10 @@ export interface TalentLeaderboardParams {
   playerRole: string;
   page?: number;
   limit?: number;
+}
+
+export async function getPlayerTalentOhlc(playerId: string, talentType: string): Promise<DailyOhlc[]> {
+  return apiFetch(`/api/talent/players/${playerId}/ohlc?talent_type=${talentType}`);
 }
 
 export async function getTalentLeaderboard(params: TalentLeaderboardParams): Promise<TalentLeaderboardPlayer[]> {

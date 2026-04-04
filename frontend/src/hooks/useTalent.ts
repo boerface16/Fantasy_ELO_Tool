@@ -11,6 +11,15 @@ export function usePlayerTalentRadar(playerId: string) {
   });
 }
 
+export function usePlayerTalentOhlc(playerId: string, talentType: string) {
+  return useQuery({
+    queryKey: ['playerTalentOhlc', playerId, talentType],
+    queryFn: () => talentApi.getPlayerTalentOhlc(playerId, talentType),
+    enabled: !!playerId && !!talentType,
+    staleTime: 60_000,
+  });
+}
+
 export function useTalentLeaderboard(params: TalentLeaderboardParams) {
   return useQuery({
     queryKey: ['talentLeaderboard', params],

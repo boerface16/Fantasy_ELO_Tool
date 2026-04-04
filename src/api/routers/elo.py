@@ -295,6 +295,97 @@ async def player_games(
     return {"games": result}
 
 
+@router.get("/hot-fantasy")
+async def hot_fantasy(date: str, role: str = Query("batter")):
+    return await _daily_fantasy(date, role, hot=True)
+
+
+@router.get("/cold-fantasy")
+async def cold_fantasy(date: str, role: str = Query("batter")):
+    return await _daily_fantasy(date, role, hot=False)
+
+
+@router.get("/fantasy-leaderboard")
+async def fantasy_leaderboard(
+    role: str = Query("batter"),
+    season: int = Query(2026),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+):
+    sb = get_supabase()
+    offset = (page - 1) * limit
+    fn = "fantasy_batter_leaderboard" if role == "batter" else "fantasy_pitcher_leaderboard"
+    resp = sb.rpc(fn, {"p_season": season, "p_limit": limit, "p_offset": offset}).execute()
+    pa_key = "total_bf" if role == "pitcher" else "total_pa"
+    return [
+        {
+            "player_id": r["player_id"],
+            "full_name": r["full_name"],
+            "team": r["team"],
+            "position": r["position"],
+            "total_pts": round(r["total_pts"], 1),
+            "total_pa": r.get(pa_key, 0),
+        }
+        for r in resp.data or []
+    ]
+
+
+async def _daily_fantasy(date: str, role: str, hot: bool) -> list:
+    from collections import defaultdict
+    sb = get_supabase()
+    id_col = "pitcher_id" if role == "pitcher" else "batter_id"
+
+    all_rows = []
+    offset = 0
+    while True:
+        resp = (
+            sb.table("plate_appearances")
+            .select(f"{id_col}, result_type")
+            .eq("game_date", date)
+            .range(offset, offset + 999)
+            .execute()
+        )
+        all_rows.extend(resp.data or [])
+        if len(resp.data or []) < 1000:
+            break
+        offset += 1000
+
+    player_rts: dict[int, dict] = defaultdict(dict)
+    for row in all_rows:
+        pid = row[id_col]
+        rt = row["result_type"]
+        player_rts[pid][rt] = player_rts[pid].get(rt, 0) + 1
+
+    scoring = _load_scoring()
+    rules = scoring["pitcher" if role == "pitcher" else "batter"]
+    pts_fn = _pitcher_pts if role == "pitcher" else _batter_pts
+    pts_map = {pid: pts_fn(rt_counts, rules) for pid, rt_counts in player_rts.items()}
+
+    sorted_ids = sorted(pts_map, key=lambda p: pts_map[p], reverse=hot)[:10]
+    if not sorted_ids:
+        return []
+
+    name_resp = (
+        sb.table("players")
+        .select("player_id, full_name, team, position")
+        .in_("player_id", sorted_ids)
+        .execute()
+    )
+    name_map = {r["player_id"]: r for r in name_resp.data or []}
+
+    return [
+        {
+            "player_id": pid,
+            "fantasy_points": round(pts_map[pid], 1),
+            "total_pa": sum(player_rts[pid].values()),
+            "full_name": name_map.get(pid, {}).get("full_name", f"Player {pid}"),
+            "team": name_map.get(pid, {}).get("team", ""),
+            "position": name_map.get(pid, {}).get("position", ""),
+        }
+        for pid in sorted_ids
+    ]
+
+
 @router.get("/search")
 async def search_players(q: str = Query("", min_length=2)):
     sb = get_supabase()

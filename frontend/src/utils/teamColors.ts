@@ -44,6 +44,52 @@ export const TEAM_COLORS: Record<string, TeamColor> = {
   'COL': { primary: '#33006F', primaryText: '#ffffff', secondary: '#C4CED4', secondaryText: '#33006F' },
 };
 
+/** Returns HSL lightness (0–100) of a hex color. */
+function hexLightness(hex: string): number {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16) / 255;
+  const g = parseInt(h.slice(2, 4), 16) / 255;
+  const b = parseInt(h.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  return ((max + min) / 2) * 100;
+}
+
+/** Returns true if a hex color is a shade of red (hue 0–20° or 340–360°). */
+function isRed(hex: string): boolean {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16) / 255;
+  const g = parseInt(h.slice(2, 4), 16) / 255;
+  const b = parseInt(h.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  if (max === min) return false;
+  const range = max - min;
+  let hue = 0;
+  if (max === r) hue = ((g - b) / range + 6) % 6;
+  else if (max === g) hue = (b - r) / range + 2;
+  else hue = (r - g) / range + 4;
+  hue *= 60;
+  return hue <= 20 || hue >= 340;
+}
+
+const CHART_LIGHTNESS_THRESHOLD = 30;
+
+/**
+ * Returns the best chart line color for a team on a dark background.
+ * Uses primary if bright enough; falls back to secondary (skipping red
+ * secondaries in favor of white so navy teams don't all render red).
+ */
+export function getChartColor(teamCode: string): string {
+  const color = TEAM_COLORS[teamCode];
+  if (!color) return '#ffffff';
+  if (hexLightness(color.primary) >= CHART_LIGHTNESS_THRESHOLD) return color.primary;
+  if (hexLightness(color.secondary) >= CHART_LIGHTNESS_THRESHOLD) {
+    return isRed(color.secondary) ? '#ffffff' : color.secondary;
+  }
+  return '#ffffff';
+}
+
 export function getTeamBorderColor(teamName: string): string {
   const color = TEAM_COLORS[teamName];
   return color?.primary || '#9ca3af';

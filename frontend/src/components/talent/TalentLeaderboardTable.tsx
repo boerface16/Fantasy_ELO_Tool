@@ -18,6 +18,7 @@ export default function TalentLeaderboardTable({
 }: TalentLeaderboardTableProps) {
   return (
     <div className="bg-bg-card rounded-xl shadow-sm border border-border-line overflow-hidden">
+      <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
           <tr className="border-b border-border-line bg-white/5">
@@ -56,6 +57,7 @@ export default function TalentLeaderboardTable({
           )}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

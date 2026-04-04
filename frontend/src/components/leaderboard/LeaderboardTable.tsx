@@ -13,6 +13,7 @@ interface LeaderboardTableProps {
 export default function LeaderboardTable({ players, isLoading = false, startRank = 1, position }: LeaderboardTableProps) {
   return (
     <div className="bg-bg-card rounded-xl shadow-sm border border-border-line overflow-hidden">
+      <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
           <tr className="border-b border-border-line bg-white/5">
@@ -51,6 +52,7 @@ export default function LeaderboardTable({ players, isLoading = false, startRank
           )}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

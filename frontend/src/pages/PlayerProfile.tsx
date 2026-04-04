@@ -234,7 +234,7 @@ export default function PlayerProfile() {
 
       {/* Player Header */}
       <div className="bg-bg-card rounded-lg shadow-sm p-6">
-        <div className="flex items-start gap-6">
+        <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
           {/* Team Badge */}
           <div
             className="w-20 h-20 rounded-full flex items-center justify-center border-2 overflow-hidden"
@@ -258,7 +258,7 @@ export default function PlayerProfile() {
 
           {/* ELO Stats */}
           {isTwoWay ? (
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <EloCard label="Batting ELO" elo={batting_elo} delta={0} paCount={batting_pa} />
               <EloCard label="Pitching ELO" elo={pitching_elo} delta={0} paCount={pitching_pa} paLabel="BF" />
             </div>

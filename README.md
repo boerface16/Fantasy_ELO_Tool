@@ -5,7 +5,7 @@ A fantasy baseball tool that combines MLB ELO ratings with ESPN H2H points scori
 ## What It Does
 
 - **Player ELO** — zero-sum ratings for every MLB batter and pitcher, updated per plate appearance
-- **9D Talent ELO** — separate ELO tracks for power, discipline, speed, contact, eye (batters) and stuff, command, stamina, groundball tendency (pitchers)
+- **9D Talent ELO** — separate ELO tracks for contact, power, discipline, speed, clutch (batters) and stuff, command, BIP suppression, clutch (pitchers); full OHLC history available per dimension
 - **Team ELO** — FiveThirtyEight-style team ratings with home-field advantage, margin-of-victory scaling, and season regression
 - **Fantasy Projections** — combine ELO matchup predictions with ESPN scoring rules to project weekly fantasy points
 - **PDF Reports** — downloadable weekly projection reports with batter/pitcher breakdowns and team ELO rankings
@@ -23,7 +23,7 @@ A fantasy baseball tool that combines MLB ELO ratings with ESPN H2H points scori
 | Teams tracked | 30 |
 | Backend tests | 112 passing |
 | Fantasy modules | 8 (roster, schedule, ELO lookup, matchup predictor, calculator, projections, Fangraphs, PDF) |
-| API endpoints | 22 across 5 routers |
+| API endpoints | 28 across 5 routers |
 
 ## Tech Stack
 
@@ -129,7 +129,7 @@ python -m scripts.backfill_team_elo --fresh
 │   ├── backfill_team_elo.py # Compute team ELO from game results
 │   ├── run_daily.py         # Daily pipeline orchestrator
 │   ├── run_weekly.py        # Weekly Fangraphs cache refresh
-│   └── migrations/          # SQL migrations (001-006)
+│   └── migrations/          # SQL migrations (001-008)
 ├── frontend/                # React 19 + Vite + Tailwind
 │   └── src/
 │       ├── pages/           # Dashboard, Fantasy, Batters, Pitchers, Export, etc.
@@ -143,16 +143,20 @@ python -m scripts.backfill_team_elo --fresh
 ## API Endpoints
 
 ### Player ELO (`/api/elo`)
-- `GET /leaderboard` — ELO rankings by position
+- `GET /leaderboard` — ELO rankings by position (batter / pitcher / batter-fantasy / pitcher-fantasy)
 - `GET /players/{id}` — player detail + OHLC chart data
-- `GET /hot-players` / `cold-players` — streaking players
+- `GET /players/{id}/games` — last N games with ELO delta and fantasy points
+- `GET /hot-players` / `cold-players` — daily ELO streakers
+- `GET /hot-fantasy` / `cold-fantasy` — daily fantasy point leaders/losers (by role)
+- `GET /fantasy-leaderboard` — 2026 season cumulative fantasy points (via Supabase RPC)
 - `GET /search?q=` — fuzzy player search
 - `GET /league-summary` — league-wide ELO stats
 - `GET /latest-date` / `season-meta` — date/season info
 
 ### Talent ELO (`/api/talent`)
 - `GET /leaderboard` — 9D talent rankings
-- `GET /players/{id}/radar` — radar chart data
+- `GET /players/{id}/radar` — all talent dimensions for a player (current ELO + rank)
+- `GET /players/{id}/ohlc` — talent dimension ELO history (candlestick data, by talent_type)
 
 ### Matchup (`/api/matchup`)
 - `GET /batter/{id}/talent` — batter talent ELO
@@ -204,10 +208,10 @@ Output: per-PA probabilities for BB, K, OUT, 1B, 2B, 3B, HR + expected wOBA.
 
 | Route | Page | Description |
 |-------|------|-------------|
-| `/` | Dashboard | Daily hot/cold players, league summary |
-| `/leaderboard` | Leaderboard | Player ELO rankings by position |
+| `/` | Dashboard | Daily hot/cold players + daily fantasy points leaders/losers (batter & pitcher tabs), league summary |
+| `/leaderboard` | Leaderboard | Player ELO rankings (Batter / Pitcher / Batter Fantasy / Pitcher Fantasy tabs) |
 | `/talent-leaderboard` | Talent | 9D talent rankings |
-| `/player/:playerId` | Player Profile | ELO history chart, BF/PA stats, talent cards |
+| `/player/:playerId` | Player Profile | ELO history chart (toggleable to any talent dimension), last-5-games table, talent cards (Contact/Power/Discipline/Speed/Clutch) |
 | `/matchup` | Matchup | Head-to-head batter vs pitcher prediction |
 | `/team-elo` | Team ELO | All 30 teams ranked by ELO |
 | `/team-elo/:teamCode` | Team Detail | Team ELO chart + game log |

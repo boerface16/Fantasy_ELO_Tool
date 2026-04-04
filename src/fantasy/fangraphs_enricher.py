@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 CACHE_DIR = os.path.join(os.path.dirname(__file__), "..", "..", ".cache")
 
 BATTER_COLS = ["Name", "Team", "PA", "wRC+", "ISO", "BB%", "K%", "wOBA", "OPS"]
-PITCHER_COLS = ["Name", "Team", "IP", "ERA", "FIP", "WHIP", "K/9", "BB/9", "ERA-"]
+PITCHER_COLS = ["Name", "Team", "G", "IP", "ERA", "FIP", "WHIP", "K/9", "BB/9", "ERA-", "SV", "HLD", "SB", "CS"]
 
 
 def _cache_path(stat_type: str, season: int) -> str:

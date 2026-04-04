@@ -4,9 +4,10 @@ import { ArrowLeft, TrendingUp, TrendingDown } from 'lucide-react';
 import EloCandlestickChart from '../components/player/EloCandlestickChart';
 import { getEloTier, getEloTierColor } from '../types/elo';
 import { getTeamBorderColor } from '../utils/teamColors';
-import { usePlayerElo, usePlayerOhlc, usePlayerStats } from '../hooks/useElo';
+import { usePlayerElo, usePlayerOhlc, usePlayerStats, usePlayerGames } from '../hooks/useElo';
 import TeamLogo from '../components/common/TeamLogo';
 import TalentCardSection from '../components/player/TalentCardSection';
+import type { PlayerGameEntry } from '../api/elo';
 
 type RoleTab = 'BATTING' | 'PITCHING';
 
@@ -63,9 +64,61 @@ function StatsGrid({ stats, role }: { stats: { totalPa: number; avgDelta: number
   );
 }
 
+function LastGamesTable({ games, role }: { games: PlayerGameEntry[]; role: RoleTab }) {
+  if (games.length === 0) {
+    return <p className="text-sm text-gray-500">No recent game data available.</p>;
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-gray-400 border-b border-white/10">
+            <th className="pb-2 pr-4 font-medium">Date</th>
+            <th className="pb-2 pr-4 font-medium">Opp</th>
+            <th className="pb-2 pr-4 font-medium text-right">ELO</th>
+            <th className="pb-2 pr-4 font-medium text-right">Δ ELO</th>
+            <th className="pb-2 pr-4 font-medium text-right">Pts</th>
+            <th className="pb-2 font-medium text-right text-gray-500">
+              {role === 'BATTING' ? 'PA / TB / HR / BB / K' : 'IP / H / BB / K'}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {games.map((g) => {
+            const deltaColor = g.eloDelta > 0 ? 'text-delta-up' : g.eloDelta < 0 ? 'text-delta-down' : 'text-gray-400';
+            const ptsColor = g.fantasyPoints > 0 ? 'text-delta-up' : g.fantasyPoints < 0 ? 'text-delta-down' : 'text-gray-400';
+            const deltaSign = g.eloDelta > 0 ? '+' : '';
+            const ptsSign = g.fantasyPoints > 0 ? '+' : '';
+            const statsStr = role === 'BATTING'
+              ? `${g.stats.pa ?? '–'} / ${g.stats.tb ?? '–'} / ${g.stats.hr ?? '–'} / ${g.stats.bb} / ${g.stats.k}`
+              : `${g.stats.ip ?? '–'} / ${g.stats.h ?? '–'} / ${g.stats.bb} / ${g.stats.k}`;
+
+            return (
+              <tr key={g.gamePk} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                <td className="py-2 pr-4 text-gray-300">{g.date}</td>
+                <td className="py-2 pr-4 font-semibold text-gray-100">{g.opponent}</td>
+                <td className="py-2 pr-4 text-right text-gray-200">{g.elo > 0 ? g.elo.toFixed(0) : '—'}</td>
+                <td className={`py-2 pr-4 text-right font-medium ${deltaColor}`}>
+                  {g.elo > 0 ? `${deltaSign}${g.eloDelta.toFixed(1)}` : '—'}
+                </td>
+                <td className={`py-2 pr-4 text-right font-semibold ${ptsColor}`}>
+                  {ptsSign}{g.fantasyPoints.toFixed(1)}
+                </td>
+                <td className="py-2 text-right text-gray-500 text-xs">{statsStr}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function RoleSection({ playerId, role }: { playerId: string; role: RoleTab }) {
   const { data: ohlcData, isLoading: ohlcLoading } = usePlayerOhlc(playerId, role);
   const { data: stats, isLoading: statsLoading } = usePlayerStats(playerId, role);
+  const { data: recentGames, isLoading: gamesLoading } = usePlayerGames(playerId, role, 5);
 
   if (ohlcLoading || statsLoading) {
     return (
@@ -94,6 +147,15 @@ function RoleSection({ playerId, role }: { playerId: string; role: RoleTab }) {
           <StatsGrid stats={stats} role={role} />
         </div>
       )}
+
+      <div className="bg-bg-card rounded-lg shadow-sm p-6">
+        <h3 className="text-lg font-semibold text-gray-100 mb-4">Last 5 Games</h3>
+        {gamesLoading ? (
+          <div className="h-32 bg-white/10 rounded animate-pulse" />
+        ) : (
+          <LastGamesTable games={recentGames ?? []} role={role} />
+        )}
+      </div>
     </div>
   );
 }

@@ -81,3 +81,12 @@ export function useSeasonMeta() {
     staleTime: 300_000,
   });
 }
+
+export function usePlayerGames(playerId: string, role: string = 'BATTING', limit: number = 5) {
+  return useQuery({
+    queryKey: ['playerGames', playerId, role, limit],
+    queryFn: () => eloApi.getPlayerGames(playerId, role, limit),
+    enabled: !!playerId,
+    staleTime: 60_000,
+  });
+}

@@ -1,7 +1,7 @@
 """Convert matchup probabilities to ESPN H2H fantasy points.
 
 Uses PA outcome probabilities from matchup_predictor to estimate
-expected fantasy points per PA (batters) or per start (pitchers).
+expected fantasy points per PA (batters) or per start/appearance (pitchers).
 """
 
 import os
@@ -12,6 +12,13 @@ CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "config", "esp
 # Average batters faced per inning for estimating pitcher PA count
 AVG_BF_PER_INNING = 4.3
 
+# Speed ELO distribution (approximated — re-calibrate once speed ELO accumulates data)
+SPEED_ELO_MEAN = 1500.0
+SPEED_ELO_STD = 50.0
+
+# MLB average SBs allowed per pitcher per team game (rough league average)
+MLB_AVG_SB_PER_GAME = 0.14
+
 
 def load_scoring_config() -> dict:
     """Load ESPN scoring weights from config/espn_scoring.yaml."""
@@ -19,13 +26,21 @@ def load_scoring_config() -> dict:
         return yaml.safe_load(f)
 
 
-def estimate_batter_points(probs: dict[str, float], scoring: dict, pas: int = 1) -> float:
+def estimate_batter_points(
+    probs: dict[str, float],
+    scoring: dict,
+    pas: int = 1,
+    speed_elo: float = 1500.0,
+    pitcher_sb_factor: float = 1.0,
+) -> float:
     """Estimate expected fantasy points for a batter.
 
     Args:
         probs: PA outcome probabilities (BB, K, OUT, 1B, 2B, 3B, HR)
         scoring: scoring config dict with 'batter' key
         pas: number of plate appearances (default 1 = per-PA rate)
+        speed_elo: batter's speed talent ELO — scales stolen base rate
+        pitcher_sb_factor: opponent pitcher's SB-allow rate vs league avg (>1 = easier to steal)
 
     Returns:
         expected fantasy points
@@ -44,14 +59,15 @@ def estimate_batter_points(probs: dict[str, float], scoring: dict, pas: int = 1)
     # Strikeouts (penalty)
     e_so = probs.get("K", 0)
 
-    # R and RBI are harder to estimate from PA probs alone.
-    # Use expected total bases as a proxy: ~40% of TB become runs, ~45% become RBI
-    # (rough MLB averages from seasonal correlations)
+    # R and RBI estimated from total bases
     e_runs = e_tb * 0.40
     e_rbi = e_tb * 0.45
 
-    # SB: estimate ~2% of times on base (1B + BB)
-    e_sb = (probs.get("1B", 0) + probs.get("BB", 0)) * 0.02
+    # SB: scale by batter speed ELO and opponent pitcher permissiveness
+    speed_z = (speed_elo - SPEED_ELO_MEAN) / SPEED_ELO_STD
+    speed_factor = max(0.1, 1.0 + speed_z * 0.6)
+    sb_rate = 0.02 * speed_factor * max(0.1, pitcher_sb_factor)
+    e_sb = (probs.get("1B", 0) + e_bb) * sb_rate
 
     pts_per_pa = (
         e_tb * rules.get("TB", 1)
@@ -65,37 +81,38 @@ def estimate_batter_points(probs: dict[str, float], scoring: dict, pas: int = 1)
     return float(pts_per_pa * pas)
 
 
-def estimate_pitcher_points(probs: dict[str, float], scoring: dict,
-                            innings: float = 6.0) -> float:
-    """Estimate expected fantasy points for a pitcher start.
+def estimate_pitcher_points(
+    probs: dict[str, float],
+    scoring: dict,
+    innings: float = 6.0,
+    win_prob: float = 0.0,
+    loss_prob: float = 0.0,
+) -> float:
+    """Estimate expected fantasy points for a starting pitcher.
 
     Args:
         probs: PA outcome probabilities (from batter's perspective — inverted)
         scoring: scoring config dict with 'pitcher' key
         innings: expected innings pitched (default 6.0 for a starter)
+        win_prob: probability of earning a win this start
+        loss_prob: probability of earning a loss this start
 
     Returns:
         expected fantasy points for the start
     """
     rules = scoring["pitcher"]
 
-    # Estimate total batters faced
     bf = innings * AVG_BF_PER_INNING
 
-    # Per-BF rates (from batter perspective → invert for pitcher value)
     k_per_bf = probs.get("K", 0.22)
     bb_per_bf = probs.get("BB", 0.09)
     hit_per_bf = (probs.get("1B", 0) + probs.get("2B", 0)
                   + probs.get("3B", 0) + probs.get("HR", 0))
 
-    # Expected counts
     e_k = k_per_bf * bf
     e_bb = bb_per_bf * bf
     e_hits = hit_per_bf * bf
-
-    # ER estimate: ~30% of baserunners score (rough MLB average)
-    baserunners = e_hits + e_bb
-    e_er = baserunners * 0.30
+    e_er = (e_hits + e_bb) * 0.30
 
     pts = (
         innings * rules.get("IP", 3)
@@ -103,6 +120,59 @@ def estimate_pitcher_points(probs: dict[str, float], scoring: dict,
         + e_hits * rules.get("H", -1)
         + e_er * rules.get("ER", -2)
         + e_bb * rules.get("BB", -1)
+        + win_prob * rules.get("W", 2)
+        + loss_prob * rules.get("L", -2)
+    )
+
+    return float(pts)
+
+
+def estimate_reliever_points(
+    probs: dict[str, float],
+    scoring: dict,
+    appearances: float,
+    sv_per_app: float = 0.0,
+    hld_per_app: float = 0.0,
+    ip_per_app: float = 1.0,
+) -> float:
+    """Estimate expected fantasy points for a relief pitcher over a week.
+
+    Args:
+        probs: PA outcome probabilities (from batter's perspective — inverted)
+        scoring: scoring config dict with 'pitcher' key
+        appearances: expected number of appearances this week
+        sv_per_app: historical saves per appearance
+        hld_per_app: historical holds per appearance
+        ip_per_app: average innings pitched per appearance
+
+    Returns:
+        expected fantasy points for the week
+    """
+    rules = scoring["pitcher"]
+
+    total_ip = appearances * ip_per_app
+    bf = total_ip * AVG_BF_PER_INNING
+
+    k_per_bf = probs.get("K", 0.22)
+    bb_per_bf = probs.get("BB", 0.09)
+    hit_per_bf = (probs.get("1B", 0) + probs.get("2B", 0)
+                  + probs.get("3B", 0) + probs.get("HR", 0))
+
+    e_k = k_per_bf * bf
+    e_bb = bb_per_bf * bf
+    e_hits = hit_per_bf * bf
+    e_er = (e_hits + e_bb) * 0.30
+    e_sv = sv_per_app * appearances
+    e_hld = hld_per_app * appearances
+
+    pts = (
+        total_ip * rules.get("IP", 3)
+        + e_k * rules.get("K", 1)
+        + e_hits * rules.get("H", -1)
+        + e_er * rules.get("ER", -2)
+        + e_bb * rules.get("BB", -1)
+        + e_sv * rules.get("SV", 5)
+        + e_hld * rules.get("HD", 2)
     )
 
     return float(pts)

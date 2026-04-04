@@ -65,3 +65,33 @@ export async function getLatestDate(): Promise<string> {
 export async function getSeasonMeta(): Promise<SeasonMeta> {
   return apiFetch('/api/elo/season-meta');
 }
+
+export interface PlayerGameEntry {
+  gamePk: number;
+  date: string;
+  opponent: string;
+  elo: number;
+  eloDelta: number;
+  fantasyPoints: number;
+  stats: {
+    pa?: number;
+    bf?: number;
+    tb?: number;
+    hr?: number;
+    bb: number;
+    k: number;
+    ip?: number;
+    h?: number;
+  };
+}
+
+export async function getPlayerGames(
+  playerId: string,
+  role: string = 'BATTING',
+  limit: number = 5,
+): Promise<PlayerGameEntry[]> {
+  const resp = await apiFetch<{ games: PlayerGameEntry[] }>(
+    `/api/elo/players/${playerId}/games?role=${role}&limit=${limit}`,
+  );
+  return resp.games;
+}

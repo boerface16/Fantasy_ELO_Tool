@@ -63,6 +63,13 @@ class MultiEloConfig:
         default = self._config.get("constants", {}).get("default_expected_divisor", 400.0)
         return dim_map.get(dimension, {}).get("expected_divisor", default)
 
+    def get_baserunning_weights(self, event_type: str) -> dict[str, float]:
+        """Get speed/clutch weights for baserunning events (SB, CS)."""
+        weights = self._config.get("baserunning_weights", {}).get(event_type, {})
+        result = {"speed": 0.0, "clutch_base": 0.0}
+        result.update(weights)
+        return result
+
     def get_batter_composite_weights(self) -> dict[str, float]:
         return self._config["composite_weights"]["batter"]["default"].copy()
 

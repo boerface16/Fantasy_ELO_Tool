@@ -179,6 +179,7 @@ def upload_pas_psycopg2(conn, pa_df):
         "result_type", "delta_run_exp", "xwoba", "launch_speed", "launch_angle",
         "at_bat_number", "inning", "inning_half", "outs_when_up",
         "on_1b", "on_2b", "on_3b", "bat_score", "fld_score", "home_team", "away_team",
+        "bb_type", "runner_id",
     ]
 
     cur = conn.cursor()
@@ -189,7 +190,11 @@ def upload_pas_psycopg2(conn, pa_df):
     col_str = ", ".join(cols)
     execute_values(
         cur,
-        f"INSERT INTO plate_appearances ({col_str}) VALUES %s ON CONFLICT (pa_id) DO NOTHING",
+        f"""INSERT INTO plate_appearances ({col_str}) VALUES %s
+            ON CONFLICT (pa_id) DO UPDATE SET
+              bb_type = EXCLUDED.bb_type,
+              runner_id = EXCLUDED.runner_id,
+              result_type = EXCLUDED.result_type""",
         values,
         page_size=1000,
     )
@@ -344,11 +349,16 @@ def _build_season_projections() -> dict[int, tuple[float | None, float | None]]:
 
 def main():
     parser = argparse.ArgumentParser(description="Fast bulk data loader")
-    parser.add_argument("--end-date", type=str, default="2025-09-28")
+    default_end = (date.today() - timedelta(days=1)).isoformat()
+    parser.add_argument("--end-date", type=str, default=default_end,
+                        help=f"End date for data fetch (default: yesterday, {default_end})")
     parser.add_argument("--start-date", type=str, default=None,
                         help="Override start date (YYYY-MM-DD). Defaults to day after last DB record.")
     parser.add_argument("--fresh", action="store_true",
                         help="Recompute all ELO from scratch (loads PAs from DB if they exist)")
+    parser.add_argument("--refetch", action="store_true",
+                        help="Force full Statcast re-fetch + re-upload even if PAs exist in DB. "
+                             "Use after schema changes (e.g. bb_type, runner_id) to backfill new columns.")
     args = parser.parse_args()
     end = date.fromisoformat(args.end_date)
     force_start = date.fromisoformat(args.start_date) if args.start_date else None
@@ -356,7 +366,24 @@ def main():
     conn = get_db_conn()
     logger.info("Connected to database")
 
-    if args.fresh:
+    if args.refetch:
+        # Force Statcast re-fetch regardless of existing PAs.
+        # Uploads with ON CONFLICT DO UPDATE to backfill new columns (bb_type, runner_id).
+        # Also recomputes all ELO from scratch (same as --fresh).
+        season_start = force_start or get_season_start(end.year)
+        logger.info(f"Refetch mode: fetching Statcast {season_start} → {end} (re-uploads all PAs)")
+        raw_df = fetch_monthly_chunks(season_start, end)
+        if raw_df.empty:
+            logger.info("No Statcast data fetched")
+            conn.close()
+            return
+        pa_df = convert_statcast_to_pa(raw_df)
+        register_players_psycopg2(conn, pa_df)
+        logger.info("Uploading plate appearances (updating bb_type, runner_id)...")
+        upload_pas_psycopg2(conn, pa_df)
+        args.fresh = True  # recompute ELO from scratch after re-fetch
+
+    elif args.fresh:
         # Check if PAs already exist in DB for this date range
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM plate_appearances WHERE game_date <= %s", (end,))

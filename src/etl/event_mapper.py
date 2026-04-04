@@ -8,6 +8,8 @@ VALID_RESULT_TYPES = {
     'Single', 'Double', 'Triple', 'HR',
     'BB', 'IBB', 'HBP',
     'StrikeOut', 'OUT', 'SAC', 'FC', 'E', 'GIDP',
+    'POPUP', 'GROUNDOUT',
+    'SB', 'CS',
 }
 
 EVENT_MAP = {
@@ -35,6 +37,16 @@ EVENT_MAP = {
     'catcher_interf': 'HBP',
     'other_out': 'OUT',
     'truncated_pa': 'OUT',
+    # Baserunning events — runner_id must be extracted separately
+    'stolen_base_2b': 'SB',
+    'stolen_base_3b': 'SB',
+    'stolen_base_home': 'SB',
+    'caught_stealing_2b': 'CS',
+    'caught_stealing_3b': 'CS',
+    'caught_stealing_home': 'CS',
+    'pickoff_caught_stealing_2b': 'CS',
+    'pickoff_caught_stealing_3b': 'CS',
+    'pickoff_caught_stealing_home': 'CS',
 }
 
 

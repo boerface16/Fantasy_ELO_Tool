@@ -16,6 +16,7 @@ PITCHER_SLOTS = {"SP", "RP", "P"}
 
 @dataclass
 class MatchupSlot:
+    player_id: int | None
     player_name: str
     player_team: str
     slot: str
@@ -26,6 +27,7 @@ class MatchupSlot:
     opponent_pitcher_name: str
     is_home: bool
     venue: str
+    is_start: bool = True  # False for RP relief appearances
 
 
 def resolve_opponents(
@@ -60,8 +62,15 @@ def resolve_opponents(
 
         games = team_games.get(entry.team, [])
 
-        if entry.slot in PITCHER_SLOTS:
-            # For pitchers: only include games where they are the probable pitcher
+        if entry.slot == "RP":
+            # Relief pitchers: include ALL team games as potential appearance slots
+            for game in games:
+                is_home = game.home_team == entry.team
+                m = _make_matchup(entry, game, is_home)
+                m.is_start = False
+                matchups.append(m)
+        elif entry.slot in PITCHER_SLOTS:
+            # SP / P: only include games where they are the probable starter
             for game in games:
                 is_home = game.home_team == entry.team
                 if is_home and game.home_pitcher_name == entry.name:
@@ -90,6 +99,7 @@ def _make_matchup(entry: RosterEntry, game: ScheduleGame, is_home: bool) -> Matc
         opp_pitcher_name = game.home_pitcher_name
 
     return MatchupSlot(
+        player_id=entry.player_id,
         player_name=entry.name,
         player_team=entry.team,
         slot=entry.slot,

@@ -1,7 +1,49 @@
 """ELO endpoints — ports of frontend/src/api/elo.ts Supabase queries."""
 
+import yaml
+import os
 from fastapi import APIRouter, Query
 from src.api.deps import get_supabase
+
+_SCORING_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "..", "config", "espn_scoring.yaml")
+
+def _load_scoring():
+    with open(_SCORING_PATH) as f:
+        return yaml.safe_load(f)
+
+def _batter_pts(rt_counts: dict, rules: dict) -> float:
+    s = rt_counts.get("Single", 0)
+    d = rt_counts.get("Double", 0)
+    t = rt_counts.get("Triple", 0)
+    hr = rt_counts.get("HR", 0)
+    bb = rt_counts.get("BB", 0) + rt_counts.get("IBB", 0) + rt_counts.get("HBP", 0)
+    k = rt_counts.get("StrikeOut", 0)
+    sb = rt_counts.get("SB", 0)
+    tb = s + d * 2 + t * 3 + hr * 4
+    return (
+        tb * rules.get("TB", 1)
+        + tb * 0.40 * rules.get("R", 1)
+        + tb * 0.45 * rules.get("RBI", 1)
+        + bb * rules.get("BB", 1)
+        + sb * rules.get("SB", 1)
+        + k * rules.get("SO", -1)
+    )
+
+def _pitcher_pts(rt_counts: dict, rules: dict) -> float:
+    k = rt_counts.get("StrikeOut", 0)
+    bb = rt_counts.get("BB", 0) + rt_counts.get("IBB", 0) + rt_counts.get("HBP", 0)
+    h = (rt_counts.get("Single", 0) + rt_counts.get("Double", 0)
+         + rt_counts.get("Triple", 0) + rt_counts.get("HR", 0))
+    outs = rt_counts.get("OUT", 0) + rt_counts.get("POPUP", 0) + rt_counts.get("GROUNDOUT", 0) + k
+    ip = outs / 3.0
+    er_est = (h + bb) * 0.30
+    return (
+        ip * rules.get("IP", 3)
+        + k * rules.get("K", 1)
+        + h * rules.get("H", -1)
+        + er_est * rules.get("ER", -2)
+        + bb * rules.get("BB", -1)
+    )
 
 router = APIRouter()
 
@@ -140,6 +182,117 @@ async def player_stats(player_id: int, role: str = None):
         "lowestElo": lowest,
         "avgRange": range_sum / len(ohlc_data),
     }
+
+
+@router.get("/players/{player_id}/games")
+async def player_games(
+    player_id: int,
+    role: str = Query("BATTING"),
+    limit: int = Query(5, ge=1, le=20),
+):
+    """Last N games for a player: date, opponent, ELO, ELO delta, fantasy points."""
+    sb = get_supabase()
+
+    id_col = "pitcher_id" if role == "PITCHING" else "batter_id"
+    resp = (
+        sb.table("plate_appearances")
+        .select("game_pk, game_date, result_type, inning_half, home_team, away_team")
+        .eq(id_col, player_id)
+        .order("game_date", desc=True)
+        .limit(400)
+        .execute()
+    )
+
+    # Group by game_pk preserving recency order
+    games: dict[int, dict] = {}
+    game_order: list[int] = []
+    for row in resp.data or []:
+        gpk = row["game_pk"]
+        if gpk not in games:
+            games[gpk] = {
+                "game_pk": gpk,
+                "game_date": row["game_date"],
+                "home_team": row["home_team"] or "",
+                "away_team": row["away_team"] or "",
+                "inning_half": row["inning_half"] or "Top",
+                "result_types": [],
+            }
+            game_order.append(gpk)
+        games[gpk]["result_types"].append(row["result_type"])
+
+    recent_pks = game_order[:limit]
+    if not recent_pks:
+        return {"games": []}
+
+    # Fetch daily_ohlc for relevant dates
+    dates = list({games[pk]["game_date"] for pk in recent_pks})
+    ohlc_resp = (
+        sb.table("daily_ohlc")
+        .select("game_date, close, delta, role")
+        .eq("player_id", player_id)
+        .eq("elo_type", "SEASON")
+        .eq("role", role)
+        .in_("game_date", dates)
+        .execute()
+    )
+    ohlc_by_date = {row["game_date"]: row for row in ohlc_resp.data or []}
+
+    scoring = _load_scoring()
+    batter_rules = scoring["batter"]
+    pitcher_rules = scoring["pitcher"]
+
+    result = []
+    for pk in recent_pks:
+        g = games[pk]
+        rt_counts: dict[str, int] = {}
+        for rt in g["result_types"]:
+            rt_counts[rt] = rt_counts.get(rt, 0) + 1
+
+        # Determine opponent team
+        ih = (g["inning_half"] or "Top").capitalize()
+        if role == "BATTING":
+            opponent = g["home_team"] if ih == "Top" else g["away_team"]
+        else:
+            opponent = g["away_team"] if ih == "Top" else g["home_team"]
+
+        ohlc = ohlc_by_date.get(g["game_date"], {})
+
+        if role == "BATTING":
+            pts = _batter_pts(rt_counts, batter_rules)
+            tb = (rt_counts.get("Single", 0) + rt_counts.get("Double", 0) * 2
+                  + rt_counts.get("Triple", 0) * 3 + rt_counts.get("HR", 0) * 4)
+            stats = {
+                "pa": len(g["result_types"]),
+                "tb": tb,
+                "hr": rt_counts.get("HR", 0),
+                "bb": rt_counts.get("BB", 0) + rt_counts.get("IBB", 0) + rt_counts.get("HBP", 0),
+                "k": rt_counts.get("StrikeOut", 0),
+            }
+        else:
+            pts = _pitcher_pts(rt_counts, pitcher_rules)
+            outs = (rt_counts.get("OUT", 0) + rt_counts.get("POPUP", 0)
+                    + rt_counts.get("GROUNDOUT", 0) + rt_counts.get("StrikeOut", 0))
+            h = (rt_counts.get("Single", 0) + rt_counts.get("Double", 0)
+                 + rt_counts.get("Triple", 0) + rt_counts.get("HR", 0))
+            stats = {
+                "bf": len(g["result_types"]),
+                "ip": round(outs / 3, 1),
+                "h": h,
+                "bb": rt_counts.get("BB", 0) + rt_counts.get("IBB", 0) + rt_counts.get("HBP", 0),
+                "k": rt_counts.get("StrikeOut", 0),
+            }
+
+        result.append({
+            "gamePk": pk,
+            "date": g["game_date"],
+            "opponent": opponent or "?",
+            "elo": round(float(ohlc.get("close") or 0), 1),
+            "eloDelta": round(float(ohlc.get("delta") or 0), 1),
+            "fantasyPoints": round(pts, 1),
+            "stats": stats,
+        })
+
+    return {"games": result}
 
 
 @router.get("/search")

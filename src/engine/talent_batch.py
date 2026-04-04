@@ -121,6 +121,79 @@ class TalentBatch:
             self._active_player_ids.add(batter_id)
             self._active_player_ids.add(pitcher_id)
 
+            # --- Baserunning events (SB/CS): update runner's speed ELO only ---
+            if result_type in ('SB', 'CS'):
+                runner_id_val = row.get('runner_id')
+                if pd.isna(runner_id_val) or runner_id_val is None:
+                    continue  # can't attribute — skip
+                runner_id = int(runner_id_val)
+                self._active_player_ids.add(runner_id)
+                runner_dual = self.state_mgr.get_or_create_batter(runner_id)
+                runner = runner_dual.season
+
+                br_weights = self.config.get_baserunning_weights(result_type)
+                speed_weight = br_weights['speed']
+                clutch_base = br_weights['clutch_base']
+
+                speed_idx = BATTER_DIM_NAMES.index('speed')
+                clutch_idx = BATTER_DIM_NAMES.index('clutch')
+
+                k_speed = self.config.get_batter_k_factor('speed')
+                scale_speed = self.config.get_batter_scale('speed')
+                reliability_speed = self.engine.calculate_reliability(
+                    int(runner.event_counts[speed_idx]), 'speed'
+                )
+
+                batter_deltas = np.zeros(5)
+                if speed_weight != 0.0:
+                    actual = 1.0 if speed_weight > 0 else 0.0
+                    delta = k_speed * scale_speed * abs(speed_weight) * (actual - 0.5) * reliability_speed
+                    batter_deltas[speed_idx] = delta
+
+                # Clutch credit for high-leverage steals
+                is_risp_br = bool(row.get('on_2b', False)) or bool(row.get('on_3b', False))
+                if clutch_base != 0.0:
+                    k_clutch = self.config.get_batter_k_factor('clutch')
+                    scale_clutch = self.config.get_batter_scale('clutch')
+                    reliability_clutch = self.engine.calculate_reliability(
+                        int(runner.event_counts[clutch_idx]), 'clutch'
+                    )
+                    clutch_mult = 0.5 if is_risp_br else 0.0
+                    weight_clutch = clutch_base * (1.0 + clutch_mult)
+                    actual_c = 1.0 if weight_clutch > 0 else 0.0
+                    batter_deltas[clutch_idx] = k_clutch * scale_clutch * abs(weight_clutch) * (actual_c - 0.5) * reliability_clutch
+
+                self._record_ohlc_open(runner_id, 'speed', float(runner.elo_dimensions[speed_idx]))
+                self._record_ohlc_open(runner_id, 'clutch', float(runner.elo_dimensions[clutch_idx]))
+
+                runner.apply_deltas(batter_deltas)
+                runner.increment_pa()
+                runner_dual.career.apply_deltas(batter_deltas)
+                runner_dual.career.increment_pa()
+
+                for b_idx in range(5):
+                    if batter_deltas[b_idx] != 0:
+                        runner.event_counts[b_idx] += 1
+                        runner_dual.career.event_counts[b_idx] += 1
+
+                self._update_ohlc(runner_id, 'speed', float(runner.elo_dimensions[speed_idx]))
+                self._update_ohlc(runner_id, 'clutch', float(runner.elo_dimensions[clutch_idx]))
+
+                pa_id = int(row['pa_id'])
+                for b_idx, dim_name in enumerate(BATTER_DIM_NAMES):
+                    if batter_deltas[b_idx] != 0:
+                        self.talent_pa_details.append({
+                            'pa_id': pa_id,
+                            'player_id': runner_id,
+                            'player_role': 'batter',
+                            'talent_type': dim_name,
+                            'elo_before': float(runner.elo_dimensions[b_idx] - batter_deltas[b_idx]),
+                            'elo_after': float(runner.elo_dimensions[b_idx]),
+                            'delta': float(batter_deltas[b_idx]),
+                        })
+                continue  # skip normal PA processing
+
+            # --- Normal plate appearance processing ---
             batter_dual = self.state_mgr.get_or_create_batter(batter_id)
             pitcher_dual = self.state_mgr.get_or_create_pitcher(pitcher_id)
 
@@ -129,6 +202,7 @@ class TalentBatch:
 
             # RISP from base state
             is_risp = bool(row.get('on_2b', False)) or bool(row.get('on_3b', False))
+            outs_when_up = int(row.get('outs_when_up', 0))
 
             # Record OHLC opens (before PA)
             for b_idx, dim_name in enumerate(BATTER_DIM_NAMES):
@@ -145,6 +219,7 @@ class TalentBatch:
                 batter, pitcher,
                 result_type=result_type,
                 is_risp=is_risp,
+                outs_when_up=outs_when_up,
             )
 
             # Apply same deltas to career

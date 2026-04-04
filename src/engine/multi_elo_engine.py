@@ -84,6 +84,7 @@ class MultiEloEngine:
         result_type: str,
         leverage_index: float = 1.0,
         is_risp: bool = False,
+        outs_when_up: int = 0,
     ) -> TalentUpdateResult:
         """Process a single plate appearance through the 9D engine.
 
@@ -100,10 +101,14 @@ class MultiEloEngine:
         batter_weights = self.config.get_event_weights(result_type)
         pitcher_weights = self.config.get_pitcher_event_weights(result_type)
         clutch_mult = self.get_clutch_multiplier(leverage_index)
-        is_clutch = leverage_index > self.config.leverage_threshold or is_risp
+        is_clutch = leverage_index > self.config.leverage_threshold or is_risp or outs_when_up == 2
 
         # RISP triggers minimum clutch activation
         if is_risp and clutch_mult == 0.0:
+            clutch_mult = 0.5
+
+        # 2-out situations trigger clutch activation independent of LI
+        if outs_when_up == 2 and clutch_mult < 0.5:
             clutch_mult = 0.5
 
         # GIDP clutch multiplier

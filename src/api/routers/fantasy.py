@@ -194,18 +194,39 @@ async def weekly_projection(req: WeeklyProjectionRequest):
     schedule = fetch_week_schedule(ref)
 
     sb = get_supabase()
+
+    # Enrich roster entries with DB player IDs (same lookup as /roster endpoint)
+    for entry in roster:
+        resp = (
+            sb.table("players")
+            .select("player_id, position")
+            .ilike("full_name", f"%{entry.name}%")
+            .limit(1)
+            .execute()
+        )
+        if not resp.data and " " in entry.name:
+            # Fallback: try last name only (handles "M. Trout" → matches "Mike Trout")
+            last_name = entry.name.rsplit(" ", 1)[-1]
+            resp = (
+                sb.table("players")
+                .select("player_id, position")
+                .ilike("full_name", f"%{last_name}%")
+                .limit(1)
+                .execute()
+            )
+        if resp.data:
+            entry.player_id = resp.data[0]["player_id"]
+            entry.position = resp.data[0]["position"]
+
     elo_lookup = EloLookup(sb)
 
-    # Pre-load ELO for all pitcher IDs in schedule
-    pitcher_ids = []
-    for g in schedule:
-        if g.away_pitcher_id:
-            pitcher_ids.append(g.away_pitcher_id)
-        if g.home_pitcher_id:
-            pitcher_ids.append(g.home_pitcher_id)
-    elo_lookup.load_batch(pitcher_ids)
+    # Pre-load ELO for all roster players + schedule pitchers
+    roster_ids = [e.player_id for e in roster if e.player_id]
+    pitcher_ids = [g.away_pitcher_id for g in schedule if g.away_pitcher_id] + \
+                  [g.home_pitcher_id for g in schedule if g.home_pitcher_id]
+    elo_lookup.load_batch(list(set(roster_ids + pitcher_ids)))
 
-    projection = project_week(roster, schedule, elo_lookup)
+    projection = project_week(roster, schedule, elo_lookup, sb)
 
     return {
         "weekStart": projection.week_start.isoformat(),
@@ -216,6 +237,7 @@ async def weekly_projection(req: WeeklyProjectionRequest):
         "batters": [
             {
                 "name": b.player_name,
+                "playerId": b.player_id,
                 "team": b.team,
                 "slot": b.slot,
                 "games": len(b.games),
@@ -238,14 +260,17 @@ async def weekly_projection(req: WeeklyProjectionRequest):
         "pitchers": [
             {
                 "name": p.player_name,
+                "playerId": p.player_id,
                 "team": p.team,
                 "slot": p.slot,
                 "starts": len(p.starts),
+                "appearances": p.appearances,
                 "totalPoints": round(p.total_points, 1),
                 "matchups": [
                     {
                         "date": s.game_date.isoformat(),
                         "opponent": s.opponent_team,
+                        "pitcher": s.opponent_pitcher_name,
                         "isHome": s.is_home,
                         "expectedWoba": round(s.expected_woba, 3),
                         "expectedPoints": round(s.expected_points, 1),

@@ -37,6 +37,8 @@ class RosterEntry:
     slot: str       # lineup slot (C, 1B, SP, Bench, IL, etc.)
     name: str       # player full name
     team: str       # MLB team abbreviation (or "" if unknown)
+    player_id: int | None = None   # DB player_id (set during enrichment)
+    position: str | None = None    # DB position code (SP, RP, C, etc.)
 
 
 def parse_roster_text(text: str) -> list[RosterEntry]:

@@ -26,6 +26,15 @@ logger = logging.getLogger(__name__)
 # Average PAs per game for a batter in the lineup
 AVG_PA_PER_GAME = 3.9
 
+# Composite ELO weights (aligned with fantasy scoring impact)
+BATTER_ELO_WEIGHTS = {"contact": 0.30, "power": 0.35, "discipline": 0.25, "speed": 0.10}
+PITCHER_ELO_WEIGHTS = {"stuff": 0.40, "command": 0.35, "bip_suppression": 0.25}
+
+
+def compute_composite_elo(elo_dict: dict[str, float], weights: dict[str, float]) -> float:
+    """Weighted average of talent ELO dimensions."""
+    return sum(elo_dict.get(k, 1500.0) * w for k, w in weights.items())
+
 # Average batter ELO for pitcher projection
 AVG_BATTER_ELO = {"contact": 1504.5, "power": 1468.6, "discipline": 1700.3}
 
@@ -66,6 +75,7 @@ class BatterProjection:
     games: list[GameMatchup]
     total_points: float = 0.0
     points_per_game: float = 0.0
+    composite_elo: float = 1500.0
 
 
 @dataclass
@@ -77,6 +87,7 @@ class PitcherProjection:
     starts: list[GameMatchup]  # also used for RP appearances
     total_points: float = 0.0
     appearances: int = 0       # actual game count (starts for SP, appearances for RP)
+    composite_elo: float = 1500.0
 
 
 @dataclass
@@ -88,6 +99,72 @@ class WeeklyProjection:
     total_batter_points: float = 0.0
     total_pitcher_points: float = 0.0
     total_points: float = 0.0
+    optimal_batter_points: float = 0.0
+    optimal_pitcher_points: float = 0.0
+    optimal_total_points: float = 0.0
+
+
+# ESPN lineup structure
+LINEUP_SLOTS = {"C": 1, "1B": 1, "2B": 1, "SS": 1, "3B": 1, "OF": 3, "DH": 1}
+PITCHER_LINEUP_COUNT = 3  # min 1 SP
+
+
+def compute_optimal_lineup(
+    batters: list[BatterProjection],
+    pitchers: list[PitcherProjection],
+) -> tuple[float, float]:
+    """Compute optimal starting lineup points.
+
+    Batters: best 9 (C, 1B, 2B, SS, 3B, OF×3, DH/UTIL).
+    Pitchers: best 3 with at least 1 SP.
+
+    Returns (optimal_batter_pts, optimal_pitcher_pts).
+    """
+    # --- Batters: greedy slot assignment ---
+    sorted_batters = sorted(batters, key=lambda b: b.total_points, reverse=True)
+    remaining = {"C": 1, "1B": 1, "2B": 1, "SS": 1, "3B": 1, "OF": 3}
+    util_remaining = 1  # DH/UTIL — any batter
+    selected_batter_pts = 0.0
+    used = set()
+
+    # First pass: fill positional slots
+    for b in sorted_batters:
+        slot = b.slot
+        if slot in remaining and remaining[slot] > 0 and id(b) not in used:
+            remaining[slot] -= 1
+            selected_batter_pts += b.total_points
+            used.add(id(b))
+
+    # Second pass: fill UTIL with best remaining
+    for b in sorted_batters:
+        if util_remaining <= 0:
+            break
+        if id(b) not in used:
+            selected_batter_pts += b.total_points
+            used.add(id(b))
+            util_remaining -= 1
+
+    # --- Pitchers: best 3 with at least 1 SP ---
+    sorted_pitchers = sorted(pitchers, key=lambda p: p.total_points, reverse=True)
+    selected_pitcher_pts = 0.0
+
+    # Check if any SP exists
+    sp_list = [p for p in sorted_pitchers if p.slot == 'SP']
+    rp_list = [p for p in sorted_pitchers if p.slot != 'SP']
+
+    if sp_list:
+        # Take best SP first, then fill remaining 2 from all pitchers
+        best_sp = sp_list[0]
+        selected_pitcher_pts += best_sp.total_points
+        remaining_pitchers = [p for p in sorted_pitchers if p is not best_sp]
+        for p in remaining_pitchers[:PITCHER_LINEUP_COUNT - 1]:
+            selected_pitcher_pts += p.total_points
+    else:
+        # No SP — just take top 3
+        for p in sorted_pitchers[:PITCHER_LINEUP_COUNT]:
+            selected_pitcher_pts += p.total_points
+
+    return selected_batter_pts, selected_pitcher_pts
 
 
 def _get_historical_probs(supabase, batter_id: int, opponent_team: str) -> tuple[dict, int]:
@@ -200,6 +277,10 @@ def project_week(
         games = []
         batter_player_id = player_matchups[0].player_id if player_matchups else None
 
+        # Composite ELO for display
+        full_batter_elo = elo_lookup.get_batter_elo(batter_player_id or 0)
+        batter_composite = compute_composite_elo(full_batter_elo, BATTER_ELO_WEIGHTS)
+
         for m in player_matchups:
             # Opponent pitcher ELO
             if m.opponent_pitcher_id:
@@ -257,6 +338,7 @@ def project_week(
         batters.append(BatterProjection(
             player_id=batter_player_id, player_name=name, team=team, slot=slot,
             games=games, total_points=total_pts, points_per_game=ppg,
+            composite_elo=batter_composite,
         ))
 
     # -------------------------------------------------------------------------
@@ -268,6 +350,13 @@ def project_week(
 
         sp_starts = [m for m in player_matchups if m.is_start]
         rp_slots = [m for m in player_matchups if not m.is_start]
+
+        # Composite ELO for display
+        pitcher_pid = (sp_starts[0].player_id if sp_starts else None) or \
+                      (rp_slots[0].player_id if rp_slots else None)
+        pitcher_composite = compute_composite_elo(
+            elo_lookup.get_pitcher_elo(pitcher_pid or 0), PITCHER_ELO_WEIGHTS
+        )
 
         starts = []
 
@@ -340,25 +429,33 @@ def project_week(
             continue  # SP not scheduled this week and no RP slots
 
         total_pts = sum(s.expected_points for s in starts)
-        app_count = len(sp_starts) + (len(rp_slots) if rp_slots else 0)
+        app_count = len(sp_starts) + (round(weekly_appearances) if rp_slots else 0)
 
         pitcher_player_id = (sp_starts[0].player_id if sp_starts else None) or \
                             (rp_slots[0].player_id if rp_slots else None)
         pitchers.append(PitcherProjection(
             player_id=pitcher_player_id, player_name=name, team=team, slot=slot,
             starts=starts, total_points=total_pts,
-            appearances=app_count,
+            appearances=app_count, composite_elo=pitcher_composite,
         ))
 
     total_batter = sum(b.total_points for b in batters)
     total_pitcher = sum(p.total_points for p in pitchers)
 
+    sorted_batters = sorted(batters, key=lambda b: b.total_points, reverse=True)
+    sorted_pitchers = sorted(pitchers, key=lambda p: p.total_points, reverse=True)
+
+    opt_bat, opt_pit = compute_optimal_lineup(sorted_batters, sorted_pitchers)
+
     return WeeklyProjection(
         week_start=week_start,
         week_end=week_end,
-        batters=sorted(batters, key=lambda b: b.total_points, reverse=True),
-        pitchers=sorted(pitchers, key=lambda p: p.total_points, reverse=True),
+        batters=sorted_batters,
+        pitchers=sorted_pitchers,
         total_batter_points=total_batter,
         total_pitcher_points=total_pitcher,
         total_points=total_batter + total_pitcher,
+        optimal_batter_points=opt_bat,
+        optimal_pitcher_points=opt_pit,
+        optimal_total_points=opt_bat + opt_pit,
     )

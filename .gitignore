@@ -20,6 +20,9 @@ logs/
 # Generated reports
 reports/
 
+# Other
+docs/pipeline_guide.md
+
 # Node
 frontend/node_modules/
 frontend/dist/

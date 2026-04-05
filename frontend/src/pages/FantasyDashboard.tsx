@@ -1,14 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiFetch } from '../lib/apiClient';
-import { Loader2, ArrowRight } from 'lucide-react';
+import { Loader2, ArrowRight, Calendar, CalendarDays } from 'lucide-react';
 import RosterUpload, { DEFAULT_ROSTER } from '../components/fantasy/RosterUpload';
 import WeekSelector from '../components/fantasy/WeekSelector';
 import FantasyPointsPanel from '../components/fantasy/FantasyPointsPanel';
 import WeeklyGrid from '../components/fantasy/WeeklyGrid';
 import PitcherGrid from '../components/fantasy/PitcherGrid';
-import TeamEloBadge from '../components/fantasy/TeamEloBadge';
-import { useAllTeamElos } from '../hooks/useFantasy';
 import type { RosterEntry, WeeklyProjection } from '../types/fantasy';
 
 function getMonday(d: Date): Date {
@@ -29,20 +27,25 @@ function getWeekEnd(start: string): string {
   return d.toISOString().split('T')[0];
 }
 
+function getTodayISO(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
 export default function FantasyDashboard() {
   const today = new Date();
   const monday = getMonday(today);
   const [weekStart, setWeekStart] = useState(monday.toISOString().split('T')[0]);
   const [rosterText, setRosterText] = useState(() => localStorage.getItem('rosterText') ?? DEFAULT_ROSTER);
   const [projection, setProjection] = useState<WeeklyProjection | null>(null);
+  const [dailyProjection, setDailyProjection] = useState<WeeklyProjection | null>(null);
   const [isProjecting, setIsProjecting] = useState(false);
+  const [isProjectingDaily, setIsProjectingDaily] = useState(false);
   const [error, setError] = useState('');
-
-  const { data: teamElos } = useAllTeamElos();
 
   const handleRosterParsed = (_entries: RosterEntry[], rawText: string) => {
     setRosterText(rawText);
     setProjection(null);
+    setDailyProjection(null);
   };
 
   const handleProject = async () => {
@@ -63,6 +66,23 @@ export default function FantasyDashboard() {
     }
   };
 
+  const handleProjectDaily = async () => {
+    if (!rosterText) return;
+    setIsProjectingDaily(true);
+    setError('');
+    try {
+      const data = await apiFetch<WeeklyProjection>('/api/fantasy/daily-projection', {
+        method: 'POST',
+        body: JSON.stringify({ roster_text: rosterText, ref_date: getTodayISO() }),
+      });
+      setDailyProjection(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Daily projection failed');
+    } finally {
+      setIsProjectingDaily(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -76,7 +96,7 @@ export default function FantasyDashboard() {
       {/* Roster Upload */}
       <RosterUpload onRosterParsed={handleRosterParsed} />
 
-      {/* Week Selector + Project Button */}
+      {/* Week Selector + Project Buttons */}
       {rosterText && (
         <div className="flex items-center gap-4 flex-wrap">
           <WeekSelector
@@ -90,21 +110,55 @@ export default function FantasyDashboard() {
             disabled={isProjecting}
             className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-2"
           >
-            {isProjecting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            {isProjecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CalendarDays className="w-4 h-4" />}
             Project Week
+          </button>
+          <button
+            onClick={handleProjectDaily}
+            disabled={isProjectingDaily}
+            className="px-5 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-600/90 disabled:opacity-50 transition-colors flex items-center gap-2"
+          >
+            {isProjectingDaily ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calendar className="w-4 h-4" />}
+            Project Today
           </button>
         </div>
       )}
 
       {error && <div className="text-red-500 text-sm">{error}</div>}
 
-      {/* Projection Results */}
+      {/* Daily Projection */}
+      {dailyProjection && (
+        <div className="space-y-4">
+          <FantasyPointsPanel
+            totalPoints={dailyProjection.totalPoints}
+            batterPoints={dailyProjection.totalBatterPoints}
+            pitcherPoints={dailyProjection.totalPitcherPoints}
+            optimalTotalPoints={dailyProjection.optimalTotalPoints}
+            optimalBatterPoints={dailyProjection.optimalBatterPoints}
+            optimalPitcherPoints={dailyProjection.optimalPitcherPoints}
+            weekLabel={`Today — ${dailyProjection.weekStart}`}
+          />
+          <div className="bg-bg-card rounded-xl border border-border-line shadow-sm p-5">
+            <h2 className="text-lg font-bold mb-4">Today's Batter Matchups</h2>
+            <WeeklyGrid batters={dailyProjection.batters} weekStart={dailyProjection.weekStart} />
+          </div>
+          <div className="bg-bg-card rounded-xl border border-border-line shadow-sm p-5">
+            <h2 className="text-lg font-bold mb-4">Today's Pitcher Matchups</h2>
+            <PitcherGrid pitchers={dailyProjection.pitchers} />
+          </div>
+        </div>
+      )}
+
+      {/* Weekly Projection Results */}
       {projection && (
         <>
           <FantasyPointsPanel
             totalPoints={projection.totalPoints}
             batterPoints={projection.totalBatterPoints}
             pitcherPoints={projection.totalPitcherPoints}
+            optimalTotalPoints={projection.optimalTotalPoints}
+            optimalBatterPoints={projection.optimalBatterPoints}
+            optimalPitcherPoints={projection.optimalPitcherPoints}
             weekLabel={`${projection.weekStart} → ${projection.weekEnd}`}
           />
 
@@ -132,17 +186,6 @@ export default function FantasyDashboard() {
         </>
       )}
 
-      {/* Team ELO Rankings */}
-      {teamElos && (
-        <div className="bg-bg-card rounded-xl border border-border-line shadow-sm p-5">
-          <h2 className="text-lg font-bold mb-4">Team ELO Rankings</h2>
-          <div className="flex flex-wrap gap-2">
-            {teamElos.map((t) => (
-              <TeamEloBadge key={t.teamCode} teamCode={t.teamCode} elo={t.elo} />
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

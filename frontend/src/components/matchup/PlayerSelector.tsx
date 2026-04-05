@@ -27,9 +27,11 @@ export default function PlayerSelector({ role, selectedName, onSelect }: PlayerS
   }, []);
 
   // Filter by role: batters = non-pitcher OR two-way, pitchers = pitcher OR two-way
+  // DB stores MLB position abbreviations: "P", "SP", "RP" for pitchers
+  const PITCHER_POSITIONS = new Set(['P', 'SP', 'RP']);
   const filtered = results.filter((p) => {
-    if (role === 'batter') return p.position !== 'pitcher' || p.is_two_way;
-    return p.position === 'pitcher' || p.is_two_way;
+    if (role === 'batter') return !PITCHER_POSITIONS.has(p.position) || p.is_two_way;
+    return PITCHER_POSITIONS.has(p.position) || p.is_two_way;
   });
 
   const handleSelect = (playerId: number, fullName: string) => {

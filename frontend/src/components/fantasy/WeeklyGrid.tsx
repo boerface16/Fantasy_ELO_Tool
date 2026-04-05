@@ -41,6 +41,7 @@ export default function WeeklyGrid({ batters, weekStart }: Props) {
             <th className="text-left py-2 px-2 text-xs text-gray-400 uppercase w-12">Slot</th>
             <th className="text-left py-2 px-2 text-xs text-gray-400 uppercase min-w-[140px]">Player</th>
             <th className="text-left py-2 px-2 text-xs text-gray-400 uppercase w-12">Team</th>
+            <th className="text-right py-2 px-2 text-xs text-gray-400 uppercase w-14">ELO</th>
             {DAY_LABELS.map((day, i) => (
               <th key={i} className="text-center py-2 px-2 text-xs text-gray-400 uppercase w-20">
                 {day}
@@ -62,6 +63,7 @@ export default function WeeklyGrid({ batters, weekStart }: Props) {
                 <td className="py-2 px-2 font-mono text-gray-400 text-xs">{b.slot}</td>
                 <td className="py-2 px-2 font-medium">{b.name}</td>
                 <td className="py-2 px-2 text-gray-400">{b.team}</td>
+                <td className="py-2 px-2 text-right font-mono text-xs text-gray-400">{Math.round(b.compositeElo)}</td>
                 {weekDates.map((date) => {
                   const m = matchupByDate[date];
                   if (!m) {
@@ -84,7 +86,7 @@ export default function WeeklyGrid({ batters, weekStart }: Props) {
         </tbody>
         <tfoot>
           <tr className="border-t-2 border-border-line font-semibold">
-            <td colSpan={3} className="py-2 px-2 text-gray-400">Total</td>
+            <td colSpan={4} className="py-2 px-2 text-gray-400">Total</td>
             {weekDates.map((date) => {
               const dayTotal = batters.reduce((sum, b) => {
                 const m = b.matchups.find((m) => m.date === date);

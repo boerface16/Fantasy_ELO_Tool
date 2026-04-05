@@ -79,7 +79,8 @@ def load_pas_from_db(conn, start: date, end: date) -> pd.DataFrame:
     cur.execute("""
         SELECT pa_id, game_pk, game_date, batter_id, pitcher_id,
                result_type, delta_run_exp, xwoba,
-               on_1b, on_2b, on_3b, outs_when_up, home_team, away_team
+               on_1b, on_2b, on_3b, outs_when_up, home_team, away_team,
+               bb_type, runner_id
         FROM plate_appearances
         WHERE game_date BETWEEN %s AND %s
         ORDER BY game_date, pa_id
@@ -90,6 +91,7 @@ def load_pas_from_db(conn, start: date, end: date) -> pd.DataFrame:
         'pa_id', 'game_pk', 'game_date', 'batter_id', 'pitcher_id',
         'result_type', 'delta_run_exp', 'xwoba',
         'on_1b', 'on_2b', 'on_3b', 'outs_when_up', 'home_team', 'away_team',
+        'bb_type', 'runner_id',
     ]
     df = pd.DataFrame(rows, columns=cols)
     logger.info(f"  Loaded {len(df):,} plate appearances from DB")

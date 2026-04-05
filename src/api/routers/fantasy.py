@@ -186,16 +186,8 @@ async def get_schedule(week: str | None = None):
     }
 
 
-@router.post("/weekly-projection")
-async def weekly_projection(req: WeeklyProjectionRequest):
-    """Full weekly projection: roster + schedule → matchup grid + fantasy points."""
-    roster = parse_roster_text(req.roster_text)
-    ref = date.fromisoformat(req.ref_date) if req.ref_date else date.today()
-    schedule = fetch_week_schedule(ref)
-
-    sb = get_supabase()
-
-    # Enrich roster entries with DB player IDs (same lookup as /roster endpoint)
+def _enrich_roster(roster, sb):
+    """Enrich roster entries with DB player IDs."""
     for entry in roster:
         resp = (
             sb.table("players")
@@ -205,7 +197,6 @@ async def weekly_projection(req: WeeklyProjectionRequest):
             .execute()
         )
         if not resp.data and " " in entry.name:
-            # Fallback: try last name only (handles "M. Trout" → matches "Mike Trout")
             last_name = entry.name.rsplit(" ", 1)[-1]
             resp = (
                 sb.table("players")
@@ -218,22 +209,18 @@ async def weekly_projection(req: WeeklyProjectionRequest):
             entry.player_id = resp.data[0]["player_id"]
             entry.position = resp.data[0]["position"]
 
-    elo_lookup = EloLookup(sb)
 
-    # Pre-load ELO for all roster players + schedule pitchers
-    roster_ids = [e.player_id for e in roster if e.player_id]
-    pitcher_ids = [g.away_pitcher_id for g in schedule if g.away_pitcher_id] + \
-                  [g.home_pitcher_id for g in schedule if g.home_pitcher_id]
-    elo_lookup.load_batch(list(set(roster_ids + pitcher_ids)))
-
-    projection = project_week(roster, schedule, elo_lookup, sb)
-
+def _projection_to_response(projection):
+    """Convert WeeklyProjection dataclass to API response dict."""
     return {
         "weekStart": projection.week_start.isoformat(),
         "weekEnd": projection.week_end.isoformat(),
         "totalPoints": round(projection.total_points, 1),
         "totalBatterPoints": round(projection.total_batter_points, 1),
         "totalPitcherPoints": round(projection.total_pitcher_points, 1),
+        "optimalBatterPoints": round(projection.optimal_batter_points, 1),
+        "optimalPitcherPoints": round(projection.optimal_pitcher_points, 1),
+        "optimalTotalPoints": round(projection.optimal_total_points, 1),
         "batters": [
             {
                 "name": b.player_name,
@@ -243,6 +230,7 @@ async def weekly_projection(req: WeeklyProjectionRequest):
                 "games": len(b.games),
                 "totalPoints": round(b.total_points, 1),
                 "pointsPerGame": round(b.points_per_game, 1),
+                "compositeElo": round(b.composite_elo, 0),
                 "matchups": [
                     {
                         "date": g.game_date.isoformat(),
@@ -266,6 +254,7 @@ async def weekly_projection(req: WeeklyProjectionRequest):
                 "starts": len(p.starts),
                 "appearances": p.appearances,
                 "totalPoints": round(p.total_points, 1),
+                "compositeElo": round(p.composite_elo, 0),
                 "matchups": [
                     {
                         "date": s.game_date.isoformat(),
@@ -281,6 +270,49 @@ async def weekly_projection(req: WeeklyProjectionRequest):
             for p in projection.pitchers
         ],
     }
+
+
+@router.post("/weekly-projection")
+async def weekly_projection(req: WeeklyProjectionRequest):
+    """Full weekly projection: roster + schedule → matchup grid + fantasy points."""
+    roster = parse_roster_text(req.roster_text)
+    ref = date.fromisoformat(req.ref_date) if req.ref_date else date.today()
+    schedule = fetch_week_schedule(ref)
+
+    sb = get_supabase()
+    _enrich_roster(roster, sb)
+
+    elo_lookup = EloLookup(sb)
+    roster_ids = [e.player_id for e in roster if e.player_id]
+    pitcher_ids = [g.away_pitcher_id for g in schedule if g.away_pitcher_id] + \
+                  [g.home_pitcher_id for g in schedule if g.home_pitcher_id]
+    elo_lookup.load_batch(list(set(roster_ids + pitcher_ids)))
+
+    projection = project_week(roster, schedule, elo_lookup, sb)
+    return _projection_to_response(projection)
+
+
+@router.post("/daily-projection")
+async def daily_projection(req: WeeklyProjectionRequest):
+    """Daily projection: today's matchups only with known pitchers."""
+    roster = parse_roster_text(req.roster_text)
+    ref = date.fromisoformat(req.ref_date) if req.ref_date else date.today()
+    schedule = fetch_week_schedule(ref)
+
+    # Filter to today's games only
+    today_schedule = [g for g in schedule if g.game_date == ref]
+
+    sb = get_supabase()
+    _enrich_roster(roster, sb)
+
+    elo_lookup = EloLookup(sb)
+    roster_ids = [e.player_id for e in roster if e.player_id]
+    pitcher_ids = [g.away_pitcher_id for g in today_schedule if g.away_pitcher_id] + \
+                  [g.home_pitcher_id for g in today_schedule if g.home_pitcher_id]
+    elo_lookup.load_batch(list(set(roster_ids + pitcher_ids)))
+
+    projection = project_week(roster, today_schedule, elo_lookup, sb)
+    return _projection_to_response(projection)
 
 
 @router.get("/matchup/{batter_id}/{pitcher_id}")

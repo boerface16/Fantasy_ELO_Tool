@@ -80,6 +80,7 @@ export interface BatterProjection {
   games: number;
   totalPoints: number;
   pointsPerGame: number;
+  compositeElo: number;
   matchups: BatterMatchup[];
 }
 
@@ -96,7 +97,9 @@ export interface PitcherProjection {
   team: string;
   slot: string;
   starts: number;
+  appearances: number;
   totalPoints: number;
+  compositeElo: number;
   matchups: PitcherMatchup[];
 }
 
@@ -106,6 +109,9 @@ export interface WeeklyProjection {
   totalPoints: number;
   totalBatterPoints: number;
   totalPitcherPoints: number;
+  optimalBatterPoints: number;
+  optimalPitcherPoints: number;
+  optimalTotalPoints: number;
   batters: BatterProjection[];
   pitchers: PitcherProjection[];
 }

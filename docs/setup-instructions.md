@@ -51,6 +51,8 @@ Run each migration in order against your Supabase SQL Editor:
 4. `scripts/migrations/004_talent_schema.sql` — 9D talent system tables (talent_player_current, talent_pa_detail, talent_daily_ohlc)
 5. `scripts/migrations/005_talent_rpc.sql` — RPC functions for talent radar queries
 6. `scripts/migrations/006_team_elo.sql` — team ELO table (FiveThirtyEight-style)
+7. `scripts/migrations/007_fantasy_points.sql` — fantasy points tracking
+8. `scripts/migrations/008_fantasy_leaderboard_fn.sql` — fantasy leaderboard RPC functions (SB attributed to runner, not plate batter)
 
 ---
 
@@ -82,7 +84,19 @@ python -m scripts.backfill_team_elo --date 2026-04-01
 python -m scripts.backfill_team_elo --range 2026-04-01 2026-04-07
 ```
 
-### 3c. Compute Matchup Constants
+### 3c. Seed Speed ELO
+
+```bash
+# Seed Speed ELO for a full historical season (SB/CS from MLB Stats API)
+python scripts/seed_speed_elo_fg.py --season 2025
+
+# Dry run (prints top 20 but does not write to DB)
+python scripts/seed_speed_elo_fg.py --season 2026 --dry-run
+```
+
+Speed ELO is also seeded automatically as Step 5 of the daily pipeline. Run this manually for historical seasons or after a fresh bulk load.
+
+### 3d. Compute Matchup Constants
 
 ```bash
 python scripts/compute_matchup_constants.py
@@ -173,7 +187,7 @@ The daily pipeline runs automatically at 8am EST via `.github/workflows/daily_up
 ### Manual
 
 ```bash
-# Full daily pipeline (player ELO, team ELO, Fangraphs cache, schedule)
+# Full daily pipeline (player ELO, team ELO, Fangraphs cache, schedule, speed ELO)
 python -m scripts.run_daily
 
 # Specific date
@@ -231,10 +245,11 @@ fantasy-matchup-predictor/
 │   ├── bulk_load.py                # Fast data loader (psycopg2, ~90s)
 │   ├── daily_elo.py                # CLI for daily player ELO updates
 │   ├── backfill_team_elo.py        # CLI for team ELO backfill
-│   ├── run_daily.py                # Daily pipeline orchestrator (4 steps)
+│   ├── run_daily.py                # Daily pipeline orchestrator (5 steps)
 │   ├── run_weekly.py               # Weekly Fangraphs cache refresh
+│   ├── seed_speed_elo_fg.py        # Seed Speed ELO from MLB Stats API SB/CS data
 │   ├── compute_matchup_constants.py
-│   └── migrations/                 # SQL migrations (001-006)
+│   └── migrations/                 # SQL migrations (001-008)
 ├── frontend/                       # React 19 + Vite + Tailwind v4
 │   └── src/
 │       ├── pages/                  # 11 pages (Dashboard, Fantasy, Export, etc.)

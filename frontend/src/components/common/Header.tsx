@@ -32,7 +32,7 @@ export default function Header() {
       <div className="max-w-[1200px] mx-auto px-4 md:px-10 py-3 flex items-center justify-between gap-4">
         {/* Logo */}
         <Link to="/" className="text-xl font-bold leading-tight tracking-tight text-primary shrink-0">
-          Beers Fantasy Tool
+          Beer's Fantasy Baseball Tool
         </Link>
 
         {/* Desktop Navigation */}

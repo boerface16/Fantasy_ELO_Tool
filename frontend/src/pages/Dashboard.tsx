@@ -3,7 +3,7 @@ import DatePicker from '../components/dashboard/DatePicker';
 import HotColdSection from '../components/dashboard/HotColdSection';
 import FantasyHotColdSection from '../components/dashboard/FantasyHotColdSection';
 import LeagueSummary from '../components/dashboard/LeagueSummary';
-import { useHotPlayers, useColdPlayers, useLeagueSummary, useLatestDate, useSeasonMeta } from '../hooks/useElo';
+import { useLeagueSummary, useLatestDate, useSeasonMeta } from '../hooks/useElo';
 
 export default function Dashboard() {
   const { data: latestDate } = useLatestDate();
@@ -16,8 +16,6 @@ export default function Dashboard() {
     }
   }, [latestDate, selectedDate]);
 
-  const { data: hotPlayers, isLoading: hotLoading } = useHotPlayers(selectedDate);
-  const { data: coldPlayers, isLoading: coldLoading } = useColdPlayers(selectedDate);
   const { data: leagueSummary, isLoading: summaryLoading } = useLeagueSummary();
 
   return (
@@ -44,18 +42,10 @@ export default function Dashboard() {
       </div>
 
       {/* Hot Players Section */}
-      <HotColdSection
-        type="hot"
-        players={hotPlayers ?? []}
-        isLoading={hotLoading}
-      />
+      {selectedDate && <HotColdSection type="hot" date={selectedDate} />}
 
       {/* Cold Players Section */}
-      <HotColdSection
-        type="cold"
-        players={coldPlayers ?? []}
-        isLoading={coldLoading}
-      />
+      {selectedDate && <HotColdSection type="cold" date={selectedDate} />}
 
       {/* Fantasy Leaders */}
       {selectedDate && <FantasyHotColdSection type="hot" date={selectedDate} />}

@@ -4,7 +4,7 @@ import { ArrowLeft, TrendingUp, TrendingDown } from 'lucide-react';
 import EloCandlestickChart from '../components/player/EloCandlestickChart';
 import { getEloTier, getEloTierColor } from '../types/elo';
 import { getTeamBorderColor } from '../utils/teamColors';
-import { usePlayerElo, usePlayerOhlc, usePlayerStats, usePlayerGames } from '../hooks/useElo';
+import { usePlayerElo, usePlayerOhlc, usePlayerStats, usePlayerGames, useSeasonMeta } from '../hooks/useElo';
 import { usePlayerTalentOhlc } from '../hooks/useTalent';
 import { BATTER_TALENTS, PITCHER_TALENTS } from '../types/talent';
 import TeamLogo from '../components/common/TeamLogo';
@@ -119,11 +119,18 @@ function LastGamesTable({ games, role }: { games: PlayerGameEntry[]; role: RoleT
 
 function RoleSection({ playerId, role }: { playerId: string; role: RoleTab }) {
   const [eloView, setEloView] = useState<string>('main');
+  const [chartScope, setChartScope] = useState<'season' | 'all'>('season');
+  const { data: seasonMeta } = useSeasonMeta();
+  const seasonYear = seasonMeta?.year ?? new Date().getFullYear();
 
   // Reset to main ELO when role changes (two-way players)
   useEffect(() => { setEloView('main'); }, [role]);
 
-  const { data: ohlcData, isLoading: ohlcLoading } = usePlayerOhlc(playerId, role);
+  const { data: ohlcData, isLoading: ohlcLoading } = usePlayerOhlc(
+    playerId,
+    role,
+    chartScope === 'season' ? seasonYear : undefined,
+  );
   const { data: talentOhlcData, isLoading: talentOhlcLoading } = usePlayerTalentOhlc(
     playerId,
     eloView !== 'main' ? eloView : '',
@@ -153,6 +160,19 @@ function RoleSection({ playerId, role }: { playerId: string; role: RoleTab }) {
       <div className="bg-bg-card rounded-lg shadow-sm p-6">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold">{chartTitle}</h3>
+          <div className="flex gap-1">
+            {(['season', 'all'] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setChartScope(s)}
+                className={`px-3 py-1 rounded text-xs font-semibold transition-all ${
+                  chartScope === s ? 'bg-primary text-white' : 'bg-white/10 text-gray-400 hover:bg-white/15'
+                }`}
+              >
+                {s === 'season' ? `${seasonYear}` : 'All Time'}
+              </button>
+            ))}
+          </div>
         </div>
         {/* ELO view toggle buttons */}
         <div className="flex flex-wrap gap-1 mb-4">

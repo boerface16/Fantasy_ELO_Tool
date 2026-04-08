@@ -2,18 +2,18 @@ import { useQuery } from '@tanstack/react-query';
 import * as eloApi from '../api/elo';
 import type { LeaderboardParams } from '../api/elo';
 
-export function useHotPlayers(date: string) {
+export function useHotPlayers(date: string, role: string = 'BATTING') {
   return useQuery({
-    queryKey: ['hotPlayers', date],
-    queryFn: () => eloApi.getHotPlayers(date),
+    queryKey: ['hotPlayers', date, role],
+    queryFn: () => eloApi.getHotPlayers(date, role),
     enabled: !!date,
   });
 }
 
-export function useColdPlayers(date: string) {
+export function useColdPlayers(date: string, role: string = 'BATTING') {
   return useQuery({
-    queryKey: ['coldPlayers', date],
-    queryFn: () => eloApi.getColdPlayers(date),
+    queryKey: ['coldPlayers', date, role],
+    queryFn: () => eloApi.getColdPlayers(date, role),
     enabled: !!date,
   });
 }
@@ -34,10 +34,10 @@ export function usePlayerElo(playerId: string) {
   });
 }
 
-export function usePlayerOhlc(playerId: string, role?: string) {
+export function usePlayerOhlc(playerId: string, role?: string, season?: number) {
   return useQuery({
-    queryKey: ['playerOhlc', playerId, role],
-    queryFn: () => eloApi.getPlayerOhlc(playerId, role),
+    queryKey: ['playerOhlc', playerId, role, season],
+    queryFn: () => eloApi.getPlayerOhlc(playerId, role, season),
     enabled: !!playerId,
   });
 }

@@ -6,6 +6,7 @@ import RosterUpload, { DEFAULT_ROSTER } from '../components/fantasy/RosterUpload
 import WeekSelector from '../components/fantasy/WeekSelector';
 import FantasyPointsPanel from '../components/fantasy/FantasyPointsPanel';
 import WeeklyGrid from '../components/fantasy/WeeklyGrid';
+import DailyGrid from '../components/fantasy/DailyGrid';
 import PitcherGrid from '../components/fantasy/PitcherGrid';
 import type { RosterEntry, WeeklyProjection } from '../types/fantasy';
 
@@ -140,7 +141,7 @@ export default function FantasyDashboard() {
           />
           <div className="bg-bg-card rounded-xl border border-border-line shadow-sm p-5">
             <h2 className="text-lg font-bold mb-4">Today's Batter Matchups</h2>
-            <WeeklyGrid batters={dailyProjection.batters} weekStart={dailyProjection.weekStart} />
+            <DailyGrid batters={dailyProjection.batters} />
           </div>
           <div className="bg-bg-card rounded-xl border border-border-line shadow-sm p-5">
             <h2 className="text-lg font-bold mb-4">Today's Pitcher Matchups</h2>

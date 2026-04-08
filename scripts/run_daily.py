@@ -9,7 +9,8 @@ Steps:
     2. Team ELO (incremental backfill for target date)
     3. Refresh schedule cache (fetch this week's games)
     4. Refresh Fangraphs cache (batting + pitching stats)
-    5. Print summary
+    5. Seed Speed ELO (MLB Stats API SB/CS totals)
+    6. Print summary
 """
 
 import argparse
@@ -44,7 +45,7 @@ def main():
     print(f"{'=' * 60}\n")
 
     # Step 1: Player ELO + Talent
-    logger.info("Step 1/4: Player ELO + Talent update...")
+    logger.info("Step 1/5: Player ELO + Talent update...")
     try:
         from src.pipeline.daily_pipeline import run_daily_pipeline
         result = run_daily_pipeline(target_date=target)
@@ -57,7 +58,7 @@ def main():
         logger.error(f"  Failed: {e}")
 
     # Step 2: Team ELO
-    logger.info("Step 2/4: Team ELO update...")
+    logger.info("Step 2/5: Team ELO update...")
     try:
         from scripts.backfill_team_elo import run_backfill
         run_backfill(target_date=target.isoformat())
@@ -68,7 +69,7 @@ def main():
         logger.error(f"  Failed: {e}")
 
     # Step 3: Refresh Fangraphs cache
-    logger.info("Step 3/4: Fangraphs cache refresh...")
+    logger.info("Step 3/5: Fangraphs cache refresh...")
     try:
         from src.fantasy.fangraphs_enricher import get_batter_stats, get_pitcher_stats
         batters_df = get_batter_stats(season)
@@ -84,7 +85,7 @@ def main():
         logger.error(f"  Failed: {e}")
 
     # Step 4: Refresh schedule cache
-    logger.info("Step 4/4: Schedule fetch...")
+    logger.info("Step 4/5: Schedule fetch...")
     try:
         from src.fantasy.schedule_fetcher import fetch_week_schedule
         games = fetch_week_schedule(date.today())
@@ -92,6 +93,17 @@ def main():
         logger.info(f"  Fetched {len(games)} games for this week")
     except Exception as e:
         results["schedule"] = {"status": "error", "error": str(e)}
+        logger.error(f"  Failed: {e}")
+
+    # Step 5: Speed ELO seed
+    logger.info("Step 5/5: Speed ELO seed (MLB Stats API)...")
+    try:
+        from scripts.seed_speed_elo_fg import run_speed_seed
+        result = run_speed_seed(season)
+        results["speed_elo"] = result
+        logger.info(f"  Speed ELO updated for {result['players_updated']} players")
+    except Exception as e:
+        results["speed_elo"] = {"status": "error", "error": str(e)}
         logger.error(f"  Failed: {e}")
 
     # Summary

@@ -1,4 +1,4 @@
-# Beers Fantasy Tool — How It Works
+# Beer's Fantasy Baseball Tool — How It Works
 
 This guide explains what you personally need to do, what runs on its own, and what you never have to touch.
 
@@ -125,6 +125,7 @@ Every day at **8:00 AM EST**, GitHub automatically runs the daily update. You do
 - Team ELO ratings
 - Weekly schedule and probable pitchers
 - Player stat projections from FanGraphs
+- Speed ELO ratings (SB/CS totals from MLB Stats API)
 
 ### How to check if it ran
 

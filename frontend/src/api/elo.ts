@@ -1,12 +1,12 @@
 import { apiFetch } from '../lib/apiClient';
 import type { HotColdPlayer, PlayerElo, Player, DailyOhlc, PlayerStats, LeagueSummary, PlayerSearchResult, SeasonMeta, FantasyHotColdPlayer, FantasyLeaderboardPlayer } from '../types/elo';
 
-export async function getHotPlayers(date: string): Promise<HotColdPlayer[]> {
-  return apiFetch(`/api/elo/hot-players?date=${date}`);
+export async function getHotPlayers(date: string, role: string = 'BATTING'): Promise<HotColdPlayer[]> {
+  return apiFetch(`/api/elo/hot-players?date=${date}&role=${role}`);
 }
 
-export async function getColdPlayers(date: string): Promise<HotColdPlayer[]> {
-  return apiFetch(`/api/elo/cold-players?date=${date}`);
+export async function getColdPlayers(date: string, role: string = 'BATTING'): Promise<HotColdPlayer[]> {
+  return apiFetch(`/api/elo/cold-players?date=${date}&role=${role}`);
 }
 
 export interface LeaderboardParams {
@@ -38,9 +38,12 @@ export async function getPlayerElo(playerId: string): Promise<PlayerElo & { play
   return apiFetch(`/api/elo/players/${playerId}`);
 }
 
-export async function getPlayerOhlc(playerId: string, role?: string): Promise<DailyOhlc[]> {
-  const roleParam = role ? `?role=${role}` : '';
-  return apiFetch(`/api/elo/players/${playerId}/ohlc${roleParam}`);
+export async function getPlayerOhlc(playerId: string, role?: string, season?: number): Promise<DailyOhlc[]> {
+  const params = new URLSearchParams();
+  if (role) params.set('role', role);
+  if (season) params.set('season', String(season));
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  return apiFetch(`/api/elo/players/${playerId}/ohlc${qs}`);
 }
 
 export async function getPlayerStats(playerId: string, role?: string): Promise<PlayerStats> {

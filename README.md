@@ -13,7 +13,7 @@ A fantasy baseball tool that combines MLB ELO ratings with ESPN H2H points scori
 
 ## Current Status
 
-**All 4 phases complete.** Player ELO, talent ELO, team ELO, fantasy backend, fantasy frontend, PDF export, and daily automation are fully operational.
+**All phases complete.** Player ELO, talent ELO (including Speed ELO from MLB Stats API), team ELO, fantasy backend, fantasy frontend, PDF export, and daily automation are fully operational.
 
 | Metric | Value |
 |--------|-------|
@@ -125,11 +125,12 @@ python -m scripts.backfill_team_elo --fresh
 │   └── api/                 # FastAPI backend
 │       └── routers/         # elo, talent, matchup, fantasy, export
 ├── scripts/
-│   ├── bulk_load.py         # Fast data loader (psycopg2, ~90s)
-│   ├── backfill_team_elo.py # Compute team ELO from game results
-│   ├── run_daily.py         # Daily pipeline orchestrator
-│   ├── run_weekly.py        # Weekly Fangraphs cache refresh
-│   └── migrations/          # SQL migrations (001-008)
+│   ├── bulk_load.py              # Fast data loader (psycopg2, ~90s)
+│   ├── backfill_team_elo.py      # Compute team ELO from game results
+│   ├── run_daily.py              # Daily pipeline orchestrator (5 steps)
+│   ├── run_weekly.py             # Weekly Fangraphs cache refresh
+│   ├── seed_speed_elo_fg.py      # Seed Speed ELO from MLB Stats API SB/CS data
+│   └── migrations/               # SQL migrations (001-008)
 ├── frontend/                # React 19 + Vite + Tailwind
 │   └── src/
 │       ├── pages/           # Dashboard, Fantasy, Batters, Pitchers, Export, etc.
@@ -184,7 +185,7 @@ K * (actual_delta_run_exp - expected_delta_run_exp)
 ```
 
 ### 9D Talent ELO
-Five batter dimensions (contact, power, discipline, speed, eye) and four pitcher dimensions (stuff, command, BIP suppression, groundball tendency) track separate ELO ratings per plate appearance outcome.
+Five batter dimensions (contact, power, discipline, speed, clutch) and four pitcher dimensions (stuff, command, BIP suppression, clutch) track separate ELO ratings per plate appearance outcome.
 
 ### Team ELO
 FiveThirtyEight-style ratings (K=4, home-field advantage=24 ELO points):
@@ -232,6 +233,7 @@ GitHub Actions runs at 8am EST daily (`.github/workflows/daily_update.yml`):
 | 2 | Update team ELO from yesterday's results |
 | 3 | Refresh Fangraphs batting + pitching stat caches |
 | 4 | Fetch this week's MLB schedule + probable pitchers |
+| 5 | Seed Speed ELO from MLB Stats API (SB/CS seasonal totals) |
 
 All steps are idempotent (upsert/cache-skip). Manual trigger available via `workflow_dispatch`.
 

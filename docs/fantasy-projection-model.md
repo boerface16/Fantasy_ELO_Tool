@@ -54,12 +54,13 @@ Talent ELO values are fetched from the `talent_player_current` table in Supabase
 | `bip_suppression` | Ability to suppress hits on balls in play |
 | `command` | Walk avoidance |
 
-### Batter dimensions (3):
+### Batter dimensions (4 used in projection):
 | Dimension | What it measures |
 |-----------|-----------------|
 | `contact` | Ability to make contact on balls in play |
 | `power` | Extra-base hit rate |
 | `discipline` | Walk drawing / strikeout avoidance |
+| `speed` | Stolen base ability (seeded from MLB Stats API SB/CS totals) |
 
 ### ⚠️ Current Limitation — Batter ELO Not Used
 
@@ -210,7 +211,7 @@ pitcher:
 | 4 | IP hardcoded at 6.0 for all starters | Aces and back-of-rotation guys treated equally | Use pitcher talent ELO to scale innings (e.g. elite stuff → 6.5 IP, replacement → 5.5 IP) |
 | 5 | W/SV/HD/L not projected | Points underestimated for closers/high-win pitchers | Approximate W% from team win probability; SV from closer role + opp wOBA |
 | 6 | Runs/RBI are TB proxies, not lineup-aware | Doesn't account for lineup position or team offense | Add lineup context from Fangraphs team OPS or team ELO as a multiplier |
-| 7 | SB rate is flat 2% | Ignores player speed profile | Add SB talent dimension to batter ELO |
+| 7 | SB rate is flat 2% in fantasy points formula | Speed ELO is now populated (MLB Stats API), but projection still uses flat 2% on-base rate | Wire batter speed ELO into SB probability estimate in `fantasy_calculator.py` |
 
 ---
 
@@ -218,7 +219,8 @@ pitcher:
 
 | Data | Source | Freshness |
 |------|--------|-----------|
-| Talent ELO | `talent_player_current` (Supabase) | Updated daily by GitHub Actions |
+| Talent ELO (contact, power, discipline, clutch) | `talent_player_current` (Supabase) | Updated daily by GitHub Actions |
+| Speed ELO | MLB Stats API (`statsapi.mlb.com`) SB/CS seasonal totals | Seeded daily (Step 5 of run_daily.py) |
 | Schedule + probable pitchers | `statsapi.mlb.com` | Live at projection time |
 | Fangraphs batting/pitching stats | `pybaseball` | Daily parquet cache |
 | ESPN scoring rules | `config/espn_scoring.yaml` | Static — edit manually if your league settings differ |

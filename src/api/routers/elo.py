@@ -49,13 +49,14 @@ router = APIRouter()
 
 
 @router.get("/hot-players")
-async def hot_players(date: str):
+async def hot_players(date: str, role: str = Query("BATTING")):
     sb = get_supabase()
     resp = (
         sb.table("daily_ohlc")
         .select("player_id, game_date, open, high, low, close, delta, total_pa, players!inner(full_name, team, position)")
         .eq("game_date", date)
         .eq("elo_type", "SEASON")
+        .eq("role", role)
         .order("delta", desc=True)
         .limit(10)
         .execute()
@@ -64,13 +65,14 @@ async def hot_players(date: str):
 
 
 @router.get("/cold-players")
-async def cold_players(date: str):
+async def cold_players(date: str, role: str = Query("BATTING")):
     sb = get_supabase()
     resp = (
         sb.table("daily_ohlc")
         .select("player_id, game_date, open, high, low, close, delta, total_pa, players!inner(full_name, team, position)")
         .eq("game_date", date)
         .eq("elo_type", "SEASON")
+        .eq("role", role)
         .order("delta", desc=False)
         .limit(10)
         .execute()
@@ -132,7 +134,7 @@ async def player_elo(player_id: int):
 
 
 @router.get("/players/{player_id}/ohlc")
-async def player_ohlc(player_id: int, role: str = None):
+async def player_ohlc(player_id: int, role: str = None, season: int = None):
     sb = get_supabase()
     query = (
         sb.table("daily_ohlc")
@@ -143,6 +145,8 @@ async def player_ohlc(player_id: int, role: str = None):
     )
     if role:
         query = query.eq("role", role)
+    if season:
+        query = query.gte("game_date", f"{season}-01-01").lt("game_date", f"{season + 1}-01-01")
 
     resp = query.execute()
     return resp.data
@@ -396,17 +400,21 @@ async def search_players(q: str = Query("", min_length=2)):
         .limit(10)
         .execute()
     )
+    PITCHER_POSITIONS = {'P', 'SP', 'RP', 'CL', 'MR'}
     results = []
     for row in resp.data:
         elo = row.get("player_elo")
-        is_two_way = False
-        if elo:
-            is_two_way = (elo.get("batting_pa") or 0) > 0 and (elo.get("pitching_pa") or 0) > 0
+        batting_pa = (elo.get("batting_pa") or 0) if elo else 0
+        pitching_pa = (elo.get("pitching_pa") or 0) if elo else 0
+        is_two_way = batting_pa > 0 and pitching_pa > 0
+        position = row["position"] or ""
+        role = "pitcher" if position in PITCHER_POSITIONS else "batter"
         results.append({
             "player_id": row["player_id"],
             "full_name": row["full_name"],
             "team": row["team"],
-            "position": row["position"],
+            "position": position,
+            "role": role,
             "is_two_way": is_two_way,
         })
     return results

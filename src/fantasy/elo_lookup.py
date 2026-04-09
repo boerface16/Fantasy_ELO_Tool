@@ -5,14 +5,42 @@ caches results to avoid repeated queries within a session.
 """
 
 import logging
+import os
+import yaml
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_BATTER_ELO = {"contact": 1500.0, "power": 1500.0, "discipline": 1500.0, "speed": 1500.0}
-DEFAULT_PITCHER_ELO = {"stuff": 1500.0, "bip_suppression": 1500.0, "command": 1500.0}
+DEFAULT_PITCHER_ELO = {"stuff": 1500.0, "bip_suppression": 1500.0, "command": 1500.0, "clutch": 1500.0}
 
 BATTER_TALENTS = ["contact", "power", "discipline", "speed"]
-PITCHER_TALENTS = ["stuff", "bip_suppression", "command"]
+PITCHER_TALENTS = ["stuff", "bip_suppression", "command", "clutch"]
+
+# Load blend config from multi_elo_config.yaml (QW-3)
+_CFG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "config", "multi_elo_config.yaml")
+with open(_CFG_PATH) as _f:
+    _CFG = yaml.safe_load(_f)
+
+_ENG = _CFG["prediction_engine"]
+_SEASON_W: float = _ENG["career_blend_season_weight"]
+_CAREER_W: float = _ENG["career_blend_career_weight"]
+_RELIABILITY: dict[str, int] = {
+    d["name"]: d["reliability_threshold"]
+    for d in _CFG.get("batter_dimensions", []) + _CFG.get("pitcher_dimensions", [])
+}
+
+
+def _blend_elo(season_elo: float, career_elo, event_count, talent_type: str) -> float:
+    """Blend season and career ELO when event_count is below the reliability threshold.
+
+    For established players (event_count >= threshold), season_elo is returned as-is.
+    For call-ups or returning players with thin samples, career_elo anchors the estimate.
+    """
+    if career_elo is None or event_count is None:
+        return float(season_elo)
+    if int(event_count) >= _RELIABILITY.get(talent_type, 400):
+        return float(season_elo)
+    return _SEASON_W * float(season_elo) + _CAREER_W * float(career_elo)
 
 
 class EloLookup:
@@ -67,7 +95,7 @@ class EloLookup:
             batch = player_ids[i:i + batch_size]
             resp = (
                 self._client.table("talent_player_current")
-                .select("player_id, talent_type, season_elo")
+                .select("player_id, talent_type, season_elo, career_elo, event_count")
                 .in_("player_id", batch)
                 .eq("player_role", role)
                 .execute()
@@ -77,7 +105,12 @@ class EloLookup:
                 pid = row["player_id"]
                 if pid not in cache:
                     cache[pid] = {}
-                cache[pid][row["talent_type"]] = row["season_elo"]
+                cache[pid][row["talent_type"]] = _blend_elo(
+                    row["season_elo"],
+                    row.get("career_elo"),
+                    row.get("event_count"),
+                    row["talent_type"],
+                )
 
     def get_batter_elo(self, player_id: int) -> dict[str, float]:
         """Get batter talent ELO dict. Falls back to composite player_elo if no talent data."""
@@ -109,6 +142,7 @@ class EloLookup:
                 "stuff": composite,
                 "bip_suppression": composite,
                 "command": DEFAULT_PITCHER_ELO["command"],
+                "clutch": DEFAULT_PITCHER_ELO["clutch"],
             }
 
         return dict(DEFAULT_PITCHER_ELO)

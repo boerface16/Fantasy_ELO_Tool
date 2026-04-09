@@ -14,11 +14,11 @@ constants:
   elo_min: 500.0
   elo_max: 3000.0
   min_reliability: 0.3
-  default_expected_divisor: 400.0  # 기본 분모 (레거시 호환)
+  default_expected_divisor: 400.0  # fallback divisor (legacy compatibility)
 
 # -----------------------------------------------------------------------------
 # Batter Dimensions (5)
-# expected_divisor = 2 × std (실측 표준편차 기반)
+# expected_divisor = 2 x empirical std of season ELO distribution
 # -----------------------------------------------------------------------------
 batter_dimensions:
   - name: contact
@@ -26,44 +26,44 @@ batter_dimensions:
     k_factor: 12.0
     scale: 5.0
     reliability_threshold: 400
-    expected_divisor: 127.0  # 2 × 63.6 (실측 std)
-    description: "삼진 회피 + BIP 안타(약한 반영)"
+    expected_divisor: 127.0  # 2 x 63.6 (empirical std)
+    description: "Strikeout avoidance + weak BIP credit"
 
   - name: power
     index: 1
     k_factor: 14.4
     scale: 10.0
     reliability_threshold: 200
-    expected_divisor: 218.0  # 2 × 109.2 (실측 std)
-    description: "장타력"
+    expected_divisor: 218.0  # 2 x 109.2 (empirical std)
+    description: "Extra-base power"
 
   - name: discipline
     index: 2
     k_factor: 12.0
     scale: 5.0
     reliability_threshold: 400
-    expected_divisor: 143.0  # 2 × 71.5 (실측 std)
-    description: "선구안 (BB 전용)"
+    expected_divisor: 143.0  # 2 x 71.5 (empirical std)
+    description: "Plate discipline (walks only)"
 
   - name: speed
     index: 3
     k_factor: 36.0
     scale: 4.0
     reliability_threshold: 50
-    expected_divisor: 425.0  # 2 × 212.3 (실측 std)
-    description: "주루 능력 (SB/CS 기반)"
+    expected_divisor: 425.0  # 2 x 212.3 (empirical std)
+    description: "Baserunning (SB/CS based)"
 
   - name: clutch
     index: 4
     k_factor: 18.0
     scale: 6.0
     reliability_threshold: 100
-    expected_divisor: 115.0  # 2 × 57.3 (실측 std)
-    description: "클러치 상황 대응"
+    expected_divisor: 115.0  # 2 x 57.3 (empirical std)
+    description: "High-leverage situation performance"
 
 # -----------------------------------------------------------------------------
 # Pitcher Dimensions (4)
-# V2: dominance → bip_suppression (DIPS 기반)
+# V2: dominance replaced by bip_suppression (DIPS-based)
 # -----------------------------------------------------------------------------
 pitcher_dimensions:
   - name: stuff
@@ -71,65 +71,65 @@ pitcher_dimensions:
     k_factor: 12.0
     scale: 5.0
     reliability_threshold: 400
-    expected_divisor: 132.0  # 2 × 66.1 (실측 std)
+    expected_divisor: 132.0  # 2 x 66.1 (empirical std)
     maps_to_batter: contact
-    description: "순수 삼진 유발력 (FIP 기반, K/HR만 반영)"
+    description: "Pure strikeout ability (FIP-based, K and HR only)"
 
   - name: bip_suppression
     index: 1
-    k_factor: 4.0   # 낮은 K-factor: BABIP 노이즈 억제
-    scale: 3.0       # 낮은 scale: 느린 ELO 변동
+    k_factor: 4.0   # low K-factor: suppresses BABIP noise
+    scale: 3.0       # low scale: slow ELO movement
     reliability_threshold: 400
-    expected_divisor: 181.0  # 2 × 90.3 (실측 std)
+    expected_divisor: 181.0  # 2 x 90.3 (empirical std)
     maps_to_batter: contact
-    description: "BIP 피안타 억제력 (BABIP 노이즈 인정, 느린 ELO)"
+    description: "BIP hit suppression (BABIP noise acknowledged, slow ELO)"
 
   - name: command
     index: 2
     k_factor: 12.0
     scale: 5.0
     reliability_threshold: 400
-    expected_divisor: 148.0  # 2 × 74.1 (실측 std)
+    expected_divisor: 148.0  # 2 x 74.1 (empirical std)
     maps_to_batter: discipline
-    description: "제구"
+    description: "Walk suppression / control"
 
   - name: clutch
     index: 3
     k_factor: 18.0
-    expected_divisor: 123.0  # 2 × 61.7 (실측 std)
+    expected_divisor: 123.0  # 2 x 61.7 (empirical std)
     scale: 6.0
     reliability_threshold: 100
     maps_to_batter: clutch
-    description: "클러치 상황 대응"
+    description: "High-leverage situation performance"
 
 # -----------------------------------------------------------------------------
-# Event-Dimension Mapping (Batter) — V2 수정
-# StrikeOut discipline 제거, BIP contact 가중치 대폭 축소
+# Event-Dimension Mapping (Batter) — V2 revisions
+# StrikeOut discipline penalty removed; BIP contact weight significantly reduced
 # -----------------------------------------------------------------------------
 event_weights:
   Single:
-    contact: 0.3       # V1: 1.0 → V2: 0.3 (BIP 약한 반영)
+    contact: 0.3       # V1: 1.0 -> V2: 0.3 (weak BIP credit)
     power: 0.0
     discipline: 0.0
-    speed: 0.0         # V2.1: speed 비활성화
+    speed: 0.0         # V2.1: speed disabled on BIP
     clutch_base: 0.5
 
   Double:
-    contact: 0.3       # V1: 0.7 → V2: 0.3
+    contact: 0.3       # V1: 0.7 -> V2: 0.3
     power: 0.7
     discipline: 0.0
-    speed: 0.0         # V2.1: speed 비활성화
+    speed: 0.0         # V2.1: speed disabled on BIP
     clutch_base: 0.6
 
   Triple:
     contact: 0.3
     power: 0.3
     discipline: 0.0
-    speed: 0.0         # V2.1: speed 비활성화 (was 0.8)
+    speed: 0.0         # V2.1: speed disabled (was 0.8)
     clutch_base: 0.7
 
   HR:
-    contact: 0.2       # BIP 발생 → 약한 Contact 크레딧
+    contact: 0.2       # BIP occurred -> weak contact credit
     power: 1.0
     discipline: 0.0
     speed: 0.0
@@ -138,7 +138,7 @@ event_weights:
   BB:
     contact: 0.0
     power: 0.0
-    discipline: 1.0    # Discipline 성공
+    discipline: 1.0    # Discipline success
     speed: 0.0
     clutch_base: 0.4
 
@@ -157,14 +157,14 @@ event_weights:
     clutch_base: 0.2
 
   StrikeOut:
-    contact: -1.0      # Contact = Anti-K 핵심
+    contact: -1.0      # Contact = anti-strikeout core metric
     power: 0.0
-    discipline: -0.5   # V2.2: K penalty restored — discipline rewards BB avoidance of K
+    discipline: -0.5   # V2.2: K penalty restored -- discipline rewards walk-not-strikeout
     speed: 0.0
     clutch_base: -0.5
 
   OUT:
-    contact: -0.15     # V1: -0.5 → V2: -0.15 (BIP 약한 반영)
+    contact: -0.15     # V1: -0.5 -> V2: -0.15 (weak BIP penalty)
     power: -0.2
     discipline: 0.0
     speed: 0.0
@@ -201,33 +201,33 @@ event_weights:
 
   POPUP:
     contact: -0.2
-    power: -0.8        # popup = worst power outcome (missed badly)
+    power: -0.8        # popup = worst power outcome (badly missed)
     discipline: 0.0
     speed: 0.0
     clutch_base: -0.5
 
   GROUNDOUT:
     contact: -0.1
-    power: -0.4        # ground out = moderate power penalty
+    power: -0.4        # groundout = moderate power penalty
     discipline: 0.0
     speed: 0.0
     clutch_base: -0.3
 
 # -----------------------------------------------------------------------------
-# Pitcher Event-Dimension Mapping (V2 신규 — 비대칭 가중치)
-# DIPS 원칙: K/BB/HR만 투수 통제, BIP는 약하게 반영
+# Pitcher Event-Dimension Mapping (V2 new -- asymmetric weights)
+# DIPS principle: only K/BB/HR are pitcher-controlled; BIP reflected weakly
 # -----------------------------------------------------------------------------
 pitcher_event_weights:
   StrikeOut:
-    stuff: 1.0         # 핵심: 삼진 = Stuff 성공
+    stuff: 1.0         # core: strikeout = stuff success
     bip_suppression: 0.0
-    command: 0.3        # V2 fix: K = 볼넷 안 줌 = Command 성공 (약한 보상)
+    command: 0.3        # V2 fix: K = no walk = weak command credit
     clutch_base: 0.5
 
   BB:
     stuff: 0.0
     bip_suppression: 0.0
-    command: -1.0      # 핵심: 볼넷 = Command 실패
+    command: -1.0      # core: walk = command failure
     clutch_base: -0.7  # V2.2: raised from -0.4; RISP multiplier makes this -1.05+
 
   HBP:
@@ -243,13 +243,13 @@ pitcher_event_weights:
     clutch_base: -0.2
 
   HR:
-    stuff: -0.8        # 핵심: 홈런 = 실투 = Stuff 실패
+    stuff: -0.8        # core: home run = bad pitch = stuff failure
     bip_suppression: -0.5
     command: -0.3
     clutch_base: -0.8
 
   Single:
-    stuff: 0.0         # DIPS: BIP 결과는 Stuff에 미반영
+    stuff: 0.0         # DIPS: BIP outcome not reflected in stuff
     bip_suppression: -0.6
     command: 0.0
     clutch_base: -0.5
@@ -269,7 +269,7 @@ pitcher_event_weights:
   OUT:
     stuff: 0.0
     bip_suppression: 0.4
-    command: 0.15       # V2 fix: 아웃 처리 = Command 약한 보상
+    command: 0.15       # V2 fix: out = weak command credit
     clutch_base: 0.3
 
   GIDP:
@@ -310,7 +310,7 @@ pitcher_event_weights:
     clutch_base: 0.3
 
 # -----------------------------------------------------------------------------
-# Baserunning Events (Speed only) — 변경 없음
+# Baserunning Events (Speed only)
 # -----------------------------------------------------------------------------
 baserunning_weights:
   SB:
@@ -322,7 +322,7 @@ baserunning_weights:
     clutch_base: -0.7
 
 # -----------------------------------------------------------------------------
-# Composite Weights — V2: dominance → bip_suppression
+# Composite Weights — V2: dominance replaced by bip_suppression
 # -----------------------------------------------------------------------------
 composite_weights:
   batter:
@@ -353,7 +353,7 @@ composite_weights:
       clutch: 0.15
 
 # -----------------------------------------------------------------------------
-# Clutch Conditions — 변경 없음
+# Clutch Conditions
 # -----------------------------------------------------------------------------
 clutch_config:
   leverage_threshold: 2.0
@@ -368,3 +368,29 @@ season_reset:
   projection_weight: 0.67
   prior_season_weight: 0.33
   prior_season_regression: 0.333  # regress 1/3 toward 1500
+
+# -----------------------------------------------------------------------------
+# Prediction Engine Tuning
+# -----------------------------------------------------------------------------
+prediction_engine:
+  # QW-1: pitcher clutch z-score → win_prob shift per std deviation
+  clutch_win_weight: 0.02
+
+  # QW-1 / QW-3: ELO distribution constants for clutch dimensions
+  clutch_distribution:
+    batter_mean: 1500.0
+    batter_std: 57.3    # expected_divisor/2 from batter clutch dimension
+    pitcher_mean: 1500.0
+    pitcher_std: 61.7   # expected_divisor/2 from pitcher clutch dimension
+
+  # QW-3: career/season blend weights (mirrors season_reset)
+  career_blend_season_weight: 0.67
+  career_blend_career_weight: 0.33
+
+  # QW-5: canonical average batter ELO (single source of truth for pitcher projections)
+  avg_batter_elo:
+    contact: 1504.5
+    power: 1468.6
+    discipline: 1700.3
+    speed: 1500.0
+    clutch: 1500.0

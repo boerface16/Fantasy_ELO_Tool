@@ -11,10 +11,10 @@ export function usePlayerTalentRadar(playerId: string) {
   });
 }
 
-export function usePlayerTalentOhlc(playerId: string, talentType: string) {
+export function usePlayerTalentOhlc(playerId: string, talentType: string, season?: number) {
   return useQuery({
-    queryKey: ['playerTalentOhlc', playerId, talentType],
-    queryFn: () => talentApi.getPlayerTalentOhlc(playerId, talentType),
+    queryKey: ['playerTalentOhlc', playerId, talentType, season],
+    queryFn: () => talentApi.getPlayerTalentOhlc(playerId, talentType, season),
     enabled: !!playerId && !!talentType,
     staleTime: 60_000,
   });

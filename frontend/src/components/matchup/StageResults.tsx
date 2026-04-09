@@ -102,7 +102,7 @@ export default function StageResults({ stages, zDiffs }: StageResultsProps) {
           <span className="text-xs text-gray-400">1B {(stages.stage3.p1BGivenHit * 100).toFixed(1)}%</span>
         </div>
         <div className="mt-1.5">
-          <ZLabel label="Power" value={zDiffs.zPower} />
+          <ZLabel label="Stuff-Power" value={zDiffs.zStuffPower} />
         </div>
       </div>
     </div>

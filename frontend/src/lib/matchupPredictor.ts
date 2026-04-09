@@ -112,9 +112,10 @@ export function predictPlateAppearance(
   const pHit = s1.pBIP * pHitGivenBIP;
   const pOut = s1.pBIP * (1 - pHitGivenBIP);
 
-  // Stage 3: XBH vs Single given Hit (power standalone)
+  // Stage 3: XBH vs Single — pitcher stuff suppresses extra-base hits
+  const zStuffPower = zStuff - zPower;
   const pXBHGivenHit = zscoreToProbability(
-    zPower,
+    -zStuffPower,
     ZSCORE_DIVISOR.stage3,
     MLB_LEAGUE_AVERAGES.xbh_rate_on_hit,
   );
@@ -142,7 +143,7 @@ export function predictPlateAppearance(
   return {
     probabilities,
     expectedWoba,
-    zDiffs: { zDiscCmd, zStuffContact, zContactBip, zPower },
+    zDiffs: { zDiscCmd, zStuffContact, zContactBip, zStuffPower },
     stages: {
       stage1: s1,
       stage2: { pHitGivenBIP, pOutGivenBIP: 1 - pHitGivenBIP },

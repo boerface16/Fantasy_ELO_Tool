@@ -4,6 +4,8 @@ Flow: roster + schedule → opponent resolution → ELO lookup → matchup predi
 """
 
 import logging
+import os
+import yaml
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -23,6 +25,15 @@ from src.fantasy.fangraphs_enricher import get_pitcher_stats
 
 logger = logging.getLogger(__name__)
 
+# Load prediction engine config once at import time
+_CFG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "config", "multi_elo_config.yaml")
+with open(_CFG_PATH) as _f:
+    _ENG = yaml.safe_load(_f)["prediction_engine"]
+
+_CLUTCH_PITCHER_MEAN: float = _ENG["clutch_distribution"]["pitcher_mean"]
+_CLUTCH_PITCHER_STD: float = _ENG["clutch_distribution"]["pitcher_std"]
+_CLUTCH_WIN_WEIGHT: float = _ENG["clutch_win_weight"]
+
 # Average PAs per game for a batter in the lineup
 AVG_PA_PER_GAME = 3.9
 
@@ -35,8 +46,8 @@ def compute_composite_elo(elo_dict: dict[str, float], weights: dict[str, float])
     """Weighted average of talent ELO dimensions."""
     return sum(elo_dict.get(k, 1500.0) * w for k, w in weights.items())
 
-# Average batter ELO for pitcher projection
-AVG_BATTER_ELO = {"contact": 1504.5, "power": 1468.6, "discipline": 1700.3}
+# Average batter ELO for pitcher projection (source of truth: config/multi_elo_config.yaml)
+AVG_BATTER_ELO: dict[str, float] = _ENG["avg_batter_elo"]
 
 # SP win/loss base rates (MLB averages)
 BASE_WIN_PROB = 0.28
@@ -286,7 +297,7 @@ def project_week(
             if m.opponent_pitcher_id:
                 pitcher_elo = elo_lookup.get_pitcher_elo(m.opponent_pitcher_id)
             else:
-                pitcher_elo = {"stuff": 1500.0, "bip_suppression": 1500.0, "command": 1500.0}
+                pitcher_elo = {"stuff": 1500.0, "bip_suppression": 1500.0, "command": 1500.0, "clutch": 1500.0}
 
             # Actual batter ELO (uses player_id from roster; defaults to 1500 if not found)
             batter_elo = elo_lookup.get_batter_elo(m.player_id or 0)
@@ -367,12 +378,21 @@ def project_week(
 
             # Win/loss probability from pitcher quality vs league average
             woba_diff = LEAGUE_AVG_WOBA - pitcher_pred["expected_woba"]
-            win_prob = max(0.10, min(0.55, BASE_WIN_PROB + woba_diff * 0.5))
+            # QW-1: clutch ELO shift — high-leverage performance predicts win rate
+            clutch_elo = pitcher_own_elo.get("clutch", 1500.0)
+            z_clutch = (clutch_elo - _CLUTCH_PITCHER_MEAN) / _CLUTCH_PITCHER_STD if _CLUTCH_PITCHER_STD > 0 else 0.0
+            win_prob = max(0.10, min(0.55, BASE_WIN_PROB + woba_diff * 0.5 + z_clutch * _CLUTCH_WIN_WEIGHT))
             loss_prob = max(0.05, min(0.40, BASE_LOSS_PROB - woba_diff * 0.3))
+
+            # QW-4: use actual IP/GS from Fangraphs instead of fixed 6.0
+            fg_sp = fg_by_name.get(name.lower(), {})
+            gs = float(fg_sp.get("GS") or 0)
+            season_ip_sp = float(fg_sp.get("IP") or 0)
+            avg_ip = max(4.0, min(7.5, season_ip_sp / gs)) if gs > 0 else 6.0
 
             pts = estimate_pitcher_points(
                 pitcher_pred["probabilities"], scoring,
-                innings=6.0, win_prob=win_prob, loss_prob=loss_prob,
+                innings=avg_ip, win_prob=win_prob, loss_prob=loss_prob,
             )
 
             starts.append(GameMatchup(

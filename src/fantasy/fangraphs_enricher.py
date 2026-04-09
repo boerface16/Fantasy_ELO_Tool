@@ -1,7 +1,9 @@
-"""Fangraphs stats enricher — pybaseball wrapper with daily file cache.
+"""Pitcher stats enricher — MLB Stats API with daily file cache.
 
-Fetches season-level batting/pitching stats from Fangraphs via pybaseball,
-caches results as parquet files in .cache/ to avoid repeated API calls.
+Fetches season-level pitching stats (G, IP, SV, HLD, SB) from the MLB Stats API.
+Caches results as parquet files in .cache/ to avoid repeated API calls.
+
+Batter stats are no longer fetched (they were unused in projections).
 """
 
 import glob
@@ -10,14 +12,20 @@ import os
 from datetime import date
 
 import pandas as pd
-from pybaseball import batting_stats, pitching_stats
+import requests
 
 logger = logging.getLogger(__name__)
 
 CACHE_DIR = os.path.join(os.path.dirname(__file__), "..", "..", ".cache")
 
-BATTER_COLS = ["Name", "Team", "PA", "wRC+", "ISO", "BB%", "K%", "wOBA", "OPS"]
-PITCHER_COLS = ["Name", "Team", "G", "IP", "ERA", "FIP", "WHIP", "K/9", "BB/9", "ERA-", "SV", "HLD", "SB", "CS"]
+MLB_PITCHING_URL = (
+    "https://statsapi.mlb.com/api/v1/stats"
+    "?stats=season&playerPool=All&group=pitching"
+    "&leagueIds=103,104&gameType=R"
+    "&fields=stats,totalSplits,splits,stat,gamesPlayed,inningsPitched,"
+    "saves,holds,stolenBases,player,fullName,id"
+    "&limit=500&offset={offset}&season={season}"
+)
 
 
 def _cache_path(stat_type: str, season: int) -> str:
@@ -35,46 +43,66 @@ def _clean_old_caches(cache_dir: str, stat_type: str, season: int) -> None:
             logger.debug(f"Removed old cache: {path}")
 
 
-def _filter_cols(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
-    """Keep only columns that exist in the DataFrame."""
-    available = [c for c in cols if c in df.columns]
-    return df[available].copy()
+def _ip_to_dec(s) -> float:
+    """Convert MLB API inningsPitched string (e.g. '45.2') to decimal innings."""
+    try:
+        parts = str(s).split('.')
+        if len(parts) == 2:
+            return int(parts[0]) + int(parts[1]) / 3
+        return float(s)
+    except (ValueError, AttributeError):
+        return 0.0
 
 
-def get_batter_stats(season: int) -> pd.DataFrame:
-    """Fetch season batting stats from Fangraphs (cached daily).
+def _fetch_pitcher_stats_mlb(season: int) -> list[dict]:
+    """Fetch season pitching stats from MLB Stats API, aggregated per player."""
+    raw: dict[int, dict] = {}
+    offset = 0
+    while True:
+        url = MLB_PITCHING_URL.format(season=season, offset=offset)
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
 
-    Args:
-        season: MLB season year (e.g. 2025)
+        splits = data.get('stats', [{}])[0].get('splits', [])
+        if not splits:
+            break
 
-    Returns:
-        DataFrame with key batting columns
-    """
-    os.makedirs(CACHE_DIR, exist_ok=True)
-    path = _cache_path("batting", season)
+        for split in splits:
+            player = split.get('player', {})
+            stat = split.get('stat', {})
+            pid = player.get('id')
+            if pid is None:
+                continue
+            g = int(stat.get('gamesPlayed', 0) or 0)
+            ip = _ip_to_dec(stat.get('inningsPitched', 0))
+            sv = int(stat.get('saves', 0) or 0)
+            hld = int(stat.get('holds', 0) or 0)
+            sb = int(stat.get('stolenBases', 0) or 0)
+            if pid not in raw:
+                raw[pid] = {
+                    'Name': player.get('fullName', ''),
+                    'G': g, 'IP': ip, 'SV': sv, 'HLD': hld, 'SB': sb,
+                }
+            else:
+                raw[pid]['G'] += g
+                raw[pid]['IP'] += ip
+                raw[pid]['SV'] += sv
+                raw[pid]['HLD'] += hld
+                raw[pid]['SB'] += sb
 
-    if os.path.exists(path):
-        logger.info(f"Reading cached batting stats: {path}")
-        return pd.read_parquet(path)
+        total = data.get('stats', [{}])[0].get('totalSplits', 0)
+        offset += len(splits)
+        if offset >= total:
+            break
 
-    logger.info(f"Fetching {season} batting stats from Fangraphs...")
-    df = batting_stats(season, season)
-    df = _filter_cols(df, BATTER_COLS)
-
-    df.to_parquet(path, index=False)
-    _clean_old_caches(CACHE_DIR, "batting", season)
-    logger.info(f"  Cached {len(df)} batters to {path}")
-    return df
+    return list(raw.values())
 
 
 def get_pitcher_stats(season: int) -> pd.DataFrame:
-    """Fetch season pitching stats from Fangraphs (cached daily).
+    """Fetch season pitching stats from MLB Stats API (cached daily).
 
-    Args:
-        season: MLB season year (e.g. 2025)
-
-    Returns:
-        DataFrame with key pitching columns
+    Returns DataFrame with columns: Name, G, IP, SV, HLD, SB
     """
     os.makedirs(CACHE_DIR, exist_ok=True)
     path = _cache_path("pitching", season)
@@ -83,9 +111,9 @@ def get_pitcher_stats(season: int) -> pd.DataFrame:
         logger.info(f"Reading cached pitching stats: {path}")
         return pd.read_parquet(path)
 
-    logger.info(f"Fetching {season} pitching stats from Fangraphs...")
-    df = pitching_stats(season, season)
-    df = _filter_cols(df, PITCHER_COLS)
+    logger.info(f"Fetching {season} pitching stats from MLB Stats API...")
+    records = _fetch_pitcher_stats_mlb(season)
+    df = pd.DataFrame(records, columns=["Name", "G", "IP", "SV", "HLD", "SB"])
 
     df.to_parquet(path, index=False)
     _clean_old_caches(CACHE_DIR, "pitching", season)
@@ -93,28 +121,15 @@ def get_pitcher_stats(season: int) -> pd.DataFrame:
     return df
 
 
+def get_batter_stats(season: int) -> pd.DataFrame:
+    """Batter stats are not used in projections. Returns empty DataFrame."""
+    return pd.DataFrame()
+
+
 def get_player_stats(player_name: str, season: int) -> dict | None:
-    """Look up a single player's Fangraphs stats.
-
-    Searches batting stats first, then pitching. Case-insensitive match.
-
-    Args:
-        player_name: player full name
-        season: MLB season year
-
-    Returns:
-        dict of stats or None if not found
-    """
-    # Try batting
-    batters = get_batter_stats(season)
-    match = batters[batters["Name"].str.lower() == player_name.lower()]
-    if not match.empty:
-        return match.iloc[0].to_dict()
-
-    # Try pitching
+    """Look up a single pitcher's stats by name. Case-insensitive."""
     pitchers = get_pitcher_stats(season)
     match = pitchers[pitchers["Name"].str.lower() == player_name.lower()]
     if not match.empty:
         return match.iloc[0].to_dict()
-
     return None

@@ -27,17 +27,19 @@ async def player_talent_radar(player_id: int):
 
 
 @router.get("/players/{player_id}/ohlc")
-async def player_talent_ohlc(player_id: int, talent_type: str = Query(...)):
+async def player_talent_ohlc(player_id: int, talent_type: str = Query(...), season: int = None):
     sb = get_supabase()
-    resp = (
+    query = (
         sb.table("talent_daily_ohlc")
         .select("game_date, open_elo, high_elo, low_elo, close_elo, delta, total_pa, talent_type")
         .eq("player_id", player_id)
         .eq("talent_type", talent_type)
         .eq("elo_type", "SEASON")
         .order("game_date")
-        .execute()
     )
+    if season is not None:
+        query = query.gte("game_date", f"{season}-01-01").lt("game_date", f"{season + 1}-01-01")
+    resp = query.execute()
     return [
         {
             "game_date": r["game_date"],

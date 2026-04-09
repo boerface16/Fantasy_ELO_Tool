@@ -74,8 +74,16 @@ def convert_statcast_to_pa(statcast_df: pd.DataFrame) -> pd.DataFrame:
     pa_df['on_3b'] = pa_df['on_3b'].notna()
     pa_df['xwoba'] = pa_df.get('estimated_woba_using_speedangle')
 
-    # 7. PA ID 생성
+    # 7. PA ID generation
+    # Baserunning events (SB/CS) happen mid-at-bat and share at_bat_number with the batter's PA.
+    # Give them a separate ID space (game_pk * 1_000_000) so they don't collide on upsert.
+    is_br = pa_df['events'].isin(BASERUNNING_EVENTS)
     pa_df['pa_id'] = pa_df['game_pk'].astype(int) * 1000 + pa_df['at_bat_number'].astype(int)
+    pa_df.loc[is_br, 'pa_id'] = (
+        pa_df.loc[is_br, 'game_pk'].astype(int) * 1_000_000
+        + pa_df.loc[is_br, 'at_bat_number'].astype(int) * 1000
+        + pa_df.loc[is_br, 'pitch_number'].astype(int)
+    )
 
     # 8. 정렬
     pa_df = pa_df.sort_values(['game_date', 'game_pk', 'at_bat_number']).reset_index(drop=True)

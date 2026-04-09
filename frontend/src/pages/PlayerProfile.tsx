@@ -134,6 +134,7 @@ function RoleSection({ playerId, role }: { playerId: string; role: RoleTab }) {
   const { data: talentOhlcData, isLoading: talentOhlcLoading } = usePlayerTalentOhlc(
     playerId,
     eloView !== 'main' ? eloView : '',
+    chartScope === 'season' ? seasonYear : undefined,
   );
   const { data: stats, isLoading: statsLoading } = usePlayerStats(playerId, role);
   const { data: recentGames, isLoading: gamesLoading } = usePlayerGames(playerId, role, 5);

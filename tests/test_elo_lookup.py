@@ -75,7 +75,7 @@ class TestEloLookup:
         lookup.load_batch([1])
         lookup.load_batch([1])  # second call should not query again
         # Only one set of queries should have been made
-        assert mock_supabase.table.call_count == 2  # batter + pitcher queries
+        assert mock_supabase.table.call_count == 3  # batter talent + pitcher talent + composite fallback
 
     def test_default_batter_elo_has_required_keys(self):
         for key in ("contact", "power", "discipline"):

@@ -30,7 +30,7 @@ export interface ZScoreDiffs {
   zDiscCmd: number;
   zStuffContact: number;
   zContactBip: number;
-  zPower: number;
+  zStuffPower: number;
 }
 
 export interface StageBreakdown {

@@ -20,7 +20,7 @@ BATTER_DIM_NAMES = ["contact", "power", "discipline", "speed", "clutch"]
 PITCHER_DIM_COUNT = 4
 PITCHER_DIM_NAMES = ["stuff", "bip_suppression", "command", "clutch"]
 
-BATTER_DEFAULT_WEIGHTS = np.array([0.20, 0.20, 0.20, 0.20, 0.20])
+BATTER_DEFAULT_WEIGHTS = np.array([0.23, 0.23, 0.22, 0.10, 0.22])  # matches composite_weights.batter.default in YAML
 
 PITCHER_ROLE_WEIGHTS = {
     "starter": np.array([0.25, 0.20, 0.40, 0.15]),

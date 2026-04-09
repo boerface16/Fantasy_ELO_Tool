@@ -39,7 +39,7 @@ def prepare_pa_records(pa_df: pd.DataFrame) -> list[dict]:
                 r[k] = None
         # numpy int → Python int (JSON 직렬화)
         for k in ['pa_id', 'game_pk', 'season_year', 'batter_id', 'pitcher_id',
-                   'inning', 'at_bat_number', 'outs_when_up', 'bat_score', 'fld_score']:
+                   'inning', 'at_bat_number', 'outs_when_up', 'bat_score', 'fld_score', 'runner_id']:
             if r.get(k) is not None:
                 r[k] = int(r[k])
     return records

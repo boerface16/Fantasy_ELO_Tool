@@ -16,6 +16,7 @@ MLB_ELO_DISTRIBUTION: dict[str, dict[str, float]] = {
     "PITCHER_STUFF":           {"mean": 1587.3, "std": 56.6},
     "PITCHER_BIP_SUPPRESSION": {"mean": 1513.3, "std": 18.2},
     "PITCHER_COMMAND":         {"mean": 1681.1, "std": 126.5},
+    "PITCHER_CLUTCH":          {"mean": 1500.0, "std": 61.7},
 }
 
 MLB_LEAGUE_AVERAGES: dict[str, float] = {
@@ -117,9 +118,10 @@ def predict_plate_appearance(
     p_hit = s1["pBIP"] * p_hit_given_bip
     p_out = s1["pBIP"] * (1 - p_hit_given_bip)
 
-    # Stage 3: XBH vs Single given Hit (power standalone)
+    # Stage 3: XBH vs Single — pitcher stuff suppresses extra-base hits
+    z_stuff_power = z_stuff - z_power
     p_xbh_given_hit = zscore_to_probability(
-        z_power, ZSCORE_DIVISOR["stage3"], MLB_LEAGUE_AVERAGES["xbh_rate_on_hit"]
+        -z_stuff_power, ZSCORE_DIVISOR["stage3"], MLB_LEAGUE_AVERAGES["xbh_rate_on_hit"]
     )
     p_1b = p_hit * (1 - p_xbh_given_hit)
     p_xbh = p_hit * p_xbh_given_hit
@@ -149,7 +151,7 @@ def predict_plate_appearance(
             "z_disc_cmd": z_disc_cmd,
             "z_stuff_contact": z_stuff_contact,
             "z_contact_bip": z_contact_bip,
-            "z_power": z_power,
+            "z_stuff_power": z_stuff_power,
         },
         "stages": {
             "stage1": s1,

@@ -68,20 +68,15 @@ def main():
         results["team_elo"] = {"status": "error", "error": str(e)}
         logger.error(f"  Failed: {e}")
 
-    # Step 3: Refresh Fangraphs cache
-    logger.info("Step 3/5: Fangraphs cache refresh...")
+    # Step 3: Refresh pitcher stats cache (MLB Stats API)
+    logger.info("Step 3/5: Pitcher stats cache refresh...")
     try:
-        from src.fantasy.fangraphs_enricher import get_batter_stats, get_pitcher_stats
-        batters_df = get_batter_stats(season)
+        from src.fantasy.fangraphs_enricher import get_pitcher_stats
         pitchers_df = get_pitcher_stats(season)
-        results["fangraphs"] = {
-            "status": "success",
-            "batters": len(batters_df),
-            "pitchers": len(pitchers_df),
-        }
-        logger.info(f"  Cached {len(batters_df)} batters, {len(pitchers_df)} pitchers")
+        results["pitcher_stats"] = {"status": "success", "pitchers": len(pitchers_df)}
+        logger.info(f"  Cached {len(pitchers_df)} pitchers")
     except Exception as e:
-        results["fangraphs"] = {"status": "error", "error": str(e)}
+        results["pitcher_stats"] = {"status": "error", "error": str(e)}
         logger.error(f"  Failed: {e}")
 
     # Step 4: Refresh schedule cache

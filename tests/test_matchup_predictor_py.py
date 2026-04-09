@@ -23,6 +23,7 @@ def test_elo_distribution_keys():
     expected = {
         "BATTER_CONTACT", "BATTER_POWER", "BATTER_DISCIPLINE",
         "PITCHER_STUFF", "PITCHER_BIP_SUPPRESSION", "PITCHER_COMMAND",
+        "PITCHER_CLUTCH",
     }
     assert set(MLB_ELO_DISTRIBUTION.keys()) == expected
 
@@ -157,7 +158,7 @@ class TestPredictPA:
     def test_zdiffs_present(self, avg_batter, avg_pitcher):
         pred = predict_plate_appearance(avg_batter, avg_pitcher)
         assert "z_diffs" in pred
-        for key in ("z_disc_cmd", "z_stuff_contact", "z_contact_bip", "z_power"):
+        for key in ("z_disc_cmd", "z_stuff_contact", "z_contact_bip", "z_stuff_power"):
             assert key in pred["z_diffs"]
 
     def test_stages_present(self, avg_batter, avg_pitcher):

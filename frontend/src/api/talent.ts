@@ -13,8 +13,10 @@ export interface TalentLeaderboardParams {
   limit?: number;
 }
 
-export async function getPlayerTalentOhlc(playerId: string, talentType: string): Promise<DailyOhlc[]> {
-  return apiFetch(`/api/talent/players/${playerId}/ohlc?talent_type=${talentType}`);
+export async function getPlayerTalentOhlc(playerId: string, talentType: string, season?: number): Promise<DailyOhlc[]> {
+  const params = new URLSearchParams({ talent_type: talentType });
+  if (season !== undefined) params.set('season', String(season));
+  return apiFetch(`/api/talent/players/${playerId}/ohlc?${params}`);
 }
 
 export async function getTalentLeaderboard(params: TalentLeaderboardParams): Promise<TalentLeaderboardPlayer[]> {

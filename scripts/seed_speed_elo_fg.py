@@ -1,15 +1,21 @@
 """
-Seed Speed ELO from MLB Stats API seasonal baserunning data.
+Speed ELO utility — seed from MLB Stats API or backfill from Statcast.
 
-Statcast pitch-by-pitch data (pybaseball.statcast) does not include stolen
-base events — they are non-pitch events omitted from the Baseball Savant
-pitch-level export. This script fetches SB/CS totals from the MLB Stats API
-(free, public, uses MLBAM player IDs matching our batter_id column) and
-seeds the 'speed' dimension in talent_player_current.
+Two modes:
+
+  (default)  Seed speed ELO from MLB Stats API seasonal SB/CS totals using a
+             z-score approach. Called daily by run_daily.py to keep speed ELO
+             current with season-to-date stolen base rates.
+
+  --backfill Re-process all existing game dates for a season (force=True) so
+             that SB/CS PA rows are written with correct pa_ids and speed ELO
+             is recomputed from pitch-by-pitch data. Run once after the pa_id
+             collision bug fix, or to rebuild speed ELO from scratch.
 
 Usage:
     python scripts/seed_speed_elo_fg.py --season 2026
     python scripts/seed_speed_elo_fg.py --season 2026 --dry-run
+    python scripts/seed_speed_elo_fg.py --backfill --season 2026
 """
 
 import argparse
@@ -178,13 +184,60 @@ def run_speed_seed(season: int, sb_client=None) -> dict:
     return {'status': 'success', 'players_updated': len(records)}
 
 
+def run_backfill(season: int) -> None:
+    """Re-process all game dates for a season with force=True.
+
+    Deletes and re-ingests each day's PAs so SB/CS rows are written with
+    non-colliding pa_ids and speed ELO is recomputed from Statcast data.
+    Processes dates chronologically so incremental talent ELO state is correct.
+    """
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+
+    from src.etl.upload_to_supabase import get_supabase_client
+    from src.pipeline.daily_pipeline import run_daily_pipeline
+    from datetime import date as date_type
+
+    client = get_supabase_client()
+    rows = (
+        client.table('plate_appearances')
+        .select('game_date')
+        .eq('season_year', season)
+        .order('game_date')
+        .execute()
+        .data
+    )
+    dates = sorted({r['game_date'] for r in rows})
+
+    if not dates:
+        logger.info(f"No {season} game dates found in plate_appearances. Nothing to backfill.")
+        return
+
+    logger.info(f"Re-processing {len(dates)} dates: {dates[0]} -> {dates[-1]}")
+    for d in dates:
+        logger.info(f"--- {d} ---")
+        result = run_daily_pipeline(date_type.fromisoformat(d), force=True)
+        logger.info(
+            f"  {d}: {result.get('status')}  "
+            f"pa={result.get('pa_count', 0)}  "
+            f"active_players={result.get('active_players', 0)}"
+        )
+    logger.info("Backfill complete.")
+
+
 def main():
-    parser = argparse.ArgumentParser(description='Seed Speed ELO from MLB Stats API')
+    parser = argparse.ArgumentParser(description='Speed ELO — seed from MLB Stats API or backfill from Statcast')
     parser.add_argument('--season', type=int, default=2026)
-    parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--dry-run', action='store_true', help='Print results without writing to DB (seed mode only)')
+    parser.add_argument('--backfill', action='store_true', help='Re-process existing game dates to rebuild speed ELO from Statcast')
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s', datefmt='%H:%M:%S')
+
+    if args.backfill:
+        run_backfill(args.season)
+        return
 
     try:
         players = fetch_mlb_sb_stats(args.season)

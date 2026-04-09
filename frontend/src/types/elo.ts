@@ -61,6 +61,7 @@ export interface PlayerSearchResult {
   full_name: string;
   team: string;
   position: string;
+  role: string;
   is_two_way: boolean;
 }
 

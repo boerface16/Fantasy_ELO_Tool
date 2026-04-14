@@ -1,0 +1,15 @@
+name: Keep API Alive
+
+on:
+  schedule:
+    - cron: '*/14 15-23 * * *'  # 11am–8pm EDT (15:00–23:59 UTC)
+    - cron: '*/14 0-1 * * *'    # 8pm–10pm EDT (00:00–01:59 UTC)
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Ping health endpoint
+        run: curl -sf ${{ secrets.API_URL }}/api/health || true

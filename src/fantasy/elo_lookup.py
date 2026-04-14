@@ -5,22 +5,29 @@ caches results to avoid repeated queries within a session.
 """
 
 import logging
-import os
-import yaml
+
+from src.fantasy._config import get_config
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_BATTER_ELO = {"contact": 1500.0, "power": 1500.0, "discipline": 1500.0, "speed": 1500.0}
+DEFAULT_BATTER_ELO = {"contact": 1500.0, "power": 1500.0, "discipline": 1500.0, "speed": 1500.0, "clutch": 1500.0}
 DEFAULT_PITCHER_ELO = {"stuff": 1500.0, "bip_suppression": 1500.0, "command": 1500.0, "clutch": 1500.0}
 
-BATTER_TALENTS = ["contact", "power", "discipline", "speed"]
+BATTER_TALENTS = ["contact", "power", "discipline", "speed", "clutch"]
 PITCHER_TALENTS = ["stuff", "bip_suppression", "command", "clutch"]
 
-# Load blend config from multi_elo_config.yaml (QW-3)
-_CFG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "config", "multi_elo_config.yaml")
-with open(_CFG_PATH) as _f:
-    _CFG = yaml.safe_load(_f)
+# ME-1: OHLC form adjustment config
+_FORM_WEIGHT = 0.05       # dampening factor: trend_z * FORM_WEIGHT = form_adjustment
+_FORM_DAYS = 7            # look-back window for momentum signal
+_FORM_HISTORY = 30        # history rows per dimension for std computation
+_FORM_CAP = 0.10          # cap adjustment at ±10%
 
+# ME-4: team ELO constants
+TEAM_ELO_MEAN = 1500.0
+TEAM_ELO_STD = 50.0
+OPPONENT_WIN_WEIGHT = 0.05  # win_prob shift per std deviation of opponent team ELO
+
+_CFG = get_config()
 _ENG = _CFG["prediction_engine"]
 _SEASON_W: float = _ENG["career_blend_season_weight"]
 _CAREER_W: float = _ENG["career_blend_career_weight"]
@@ -53,6 +60,9 @@ class EloLookup:
         self._composite_batter_cache: dict[int, float] = {}
         self._composite_pitcher_cache: dict[int, float] = {}
         self._loaded_ids: set[int] = set()
+        self._form_cache: dict[tuple[int, str], float] = {}   # ME-1
+        self._form_loaded: set[int] = set()                   # ME-1: which player_ids are loaded
+        self._team_elo_cache: dict[str, float] = {}           # ME-4
 
     def load_batch(self, player_ids: list[int]) -> None:
         """Fetch talent ELO for a batch of player IDs (skips already-cached)."""
@@ -146,3 +156,77 @@ class EloLookup:
             }
 
         return dict(DEFAULT_PITCHER_ELO)
+
+    # ME-1: Recent form (OHLC trend) -------------------------------------------
+
+    def get_recent_form_adjustment(self, player_id: int, dimension: str) -> float:
+        """Return ELO multiplier in [0.90, 1.10] based on 7-day OHLC momentum.
+
+        Queries talent_daily_ohlc once per player (all dimensions batched), then
+        caches. Returns 1.0 (no adjustment) when player_id is missing or data is thin.
+        """
+        if not player_id:
+            return 1.0
+        if player_id not in self._form_loaded:
+            self._load_player_form(player_id)
+        return self._form_cache.get((player_id, dimension), 1.0)
+
+    def _load_player_form(self, player_id: int) -> None:
+        """Batch-load OHLC rows for all dimensions of one player, compute multipliers."""
+        self._form_loaded.add(player_id)
+
+        resp = (
+            self._client.table("talent_daily_ohlc")
+            .select("talent_type, game_date, open_elo, close_elo")
+            .eq("player_id", player_id)
+            .eq("elo_type", "SEASON")
+            .order("game_date", desc=True)
+            .limit(_FORM_HISTORY * 10)  # up to 30 rows × ~10 dimensions
+            .execute()
+        )
+
+        # Group by dimension
+        by_dim: dict[str, list] = {}
+        for row in resp.data or []:
+            by_dim.setdefault(row["talent_type"], []).append(row)
+
+        for dim, rows in by_dim.items():
+            rows_asc = sorted(rows, key=lambda r: r["game_date"])
+            last_30 = rows_asc[-_FORM_HISTORY:]
+            if len(last_30) < _FORM_DAYS:
+                self._form_cache[(player_id, dim)] = 1.0
+                continue
+
+            last_7 = last_30[-_FORM_DAYS:]
+            trend = last_7[-1]["close_elo"] - last_7[0]["open_elo"]
+
+            closes = [r["close_elo"] for r in last_30]
+            mean_c = sum(closes) / len(closes)
+            std_c = (sum((x - mean_c) ** 2 for x in closes) / len(closes)) ** 0.5
+
+            trend_z = trend / std_c if std_c > 0 else 0.0
+            form_adj = max(-_FORM_CAP, min(_FORM_CAP, trend_z * _FORM_WEIGHT))
+            self._form_cache[(player_id, dim)] = 1.0 + form_adj
+
+    # ME-4: Team ELO lookup -----------------------------------------------------
+
+    def load_teams(self, team_codes: list[str]) -> None:
+        """Fetch most-recent ELO (elo_after) for each team code and cache it."""
+        new_codes = [c for c in team_codes if c not in self._team_elo_cache]
+        if not new_codes:
+            return
+        for code in new_codes:
+            resp = (
+                self._client.table("team_elo")
+                .select("elo_after")
+                .eq("team_code", code)
+                .order("game_date", desc=True)
+                .limit(1)
+                .execute()
+            )
+            rows = resp.data or []
+            self._team_elo_cache[code] = float(rows[0]["elo_after"]) if rows else TEAM_ELO_MEAN
+
+    def get_team_elo(self, team_code: str) -> float:
+        """Return cached team ELO (most recent game elo_after), defaulting to league mean."""
+        return self._team_elo_cache.get(team_code, TEAM_ELO_MEAN)

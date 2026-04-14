@@ -4,15 +4,13 @@ Flow: roster + schedule → opponent resolution → ELO lookup → matchup predi
 """
 
 import logging
-import os
-import yaml
 from dataclasses import dataclass, field
 from datetime import date
 
 from src.fantasy.roster_parser import RosterEntry
 from src.fantasy.schedule_fetcher import ScheduleGame
 from src.fantasy.opponent_resolver import resolve_opponents, PITCHER_SLOTS, INACTIVE_SLOTS
-from src.fantasy.elo_lookup import EloLookup
+from src.fantasy.elo_lookup import EloLookup, TEAM_ELO_MEAN, TEAM_ELO_STD, OPPONENT_WIN_WEIGHT
 from src.fantasy.matchup_predictor import predict_plate_appearance, LEAGUE_AVG_WOBA
 from src.fantasy.fantasy_calculator import (
     estimate_batter_points,
@@ -22,13 +20,11 @@ from src.fantasy.fantasy_calculator import (
     MLB_AVG_SB_PER_GAME,
 )
 from src.fantasy.fangraphs_enricher import get_pitcher_stats
+from src.fantasy._config import get_config
 
 logger = logging.getLogger(__name__)
 
-# Load prediction engine config once at import time
-_CFG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "config", "multi_elo_config.yaml")
-with open(_CFG_PATH) as _f:
-    _ENG = yaml.safe_load(_f)["prediction_engine"]
+_ENG = get_config()["prediction_engine"]
 
 _CLUTCH_PITCHER_MEAN: float = _ENG["clutch_distribution"]["pitcher_mean"]
 _CLUTCH_PITCHER_STD: float = _ENG["clutch_distribution"]["pitcher_std"]
@@ -268,6 +264,11 @@ def project_week(
         logger.warning(f"Could not load Fangraphs pitcher stats: {e}")
         fg_by_name = {}
 
+    # ME-4: pre-load team ELO for all opponent teams encountered this week
+    if supabase:
+        all_opponent_teams = list({m.opponent_team for m in matchups if m.opponent_team})
+        elo_lookup.load_teams(all_opponent_teams)
+
     # Group matchups by player
     batter_matchups: dict[str, list] = {}
     pitcher_matchups: dict[str, list] = {}
@@ -303,11 +304,22 @@ def project_week(
             batter_elo = elo_lookup.get_batter_elo(m.player_id or 0)
             if not m.player_id:
                 logger.warning(f"No player_id for {m.player_name} ({m.player_team}) — using default ELO")
-            elif all(v == 1500.0 for k, v in batter_elo.items() if k != "speed"):
+            elif all(v == 1500.0 for k, v in batter_elo.items() if k not in ("speed", "clutch")):
                 logger.warning(f"No talent ELO in DB for {m.player_name} (id={m.player_id}) — using defaults")
-            speed_elo = batter_elo.pop("speed", 1500.0)  # separate — not used in matchup predictor
+            speed_elo = batter_elo.pop("speed", 1500.0)    # separate — SB projection only
+            clutch_elo = batter_elo.pop("clutch", 1500.0)  # ME-2: used for high-leverage blend
 
-            pred = predict_plate_appearance(batter_elo, pitcher_elo)
+            # ME-1: apply recent-form adjustment (OHLC 7-day momentum) to each batter dimension
+            if supabase and m.player_id:
+                for dim in list(batter_elo):
+                    batter_elo[dim] *= elo_lookup.get_recent_form_adjustment(m.player_id, dim)
+
+            pred = predict_plate_appearance(
+                batter_elo, pitcher_elo,
+                clutch_elo=clutch_elo,
+                is_home=m.is_home,
+                speed_elo=speed_elo,    # LR-2: drives dynamic 3B ratio
+            )
 
             # History blend: how has this batter done vs this opponent team?
             final_probs = pred["probabilities"]
@@ -374,6 +386,12 @@ def project_week(
         # --- SP: project each scheduled start ---
         for m in sp_starts:
             pitcher_own_elo = elo_lookup.get_pitcher_elo(m.player_id or 0)
+
+            # ME-1: apply recent-form adjustment to each pitcher dimension
+            if supabase and m.player_id:
+                for dim in list(pitcher_own_elo):
+                    pitcher_own_elo[dim] *= elo_lookup.get_recent_form_adjustment(m.player_id, dim)
+
             pitcher_pred = predict_plate_appearance(AVG_BATTER_ELO, pitcher_own_elo)
 
             # Win/loss probability from pitcher quality vs league average
@@ -383,6 +401,11 @@ def project_week(
             z_clutch = (clutch_elo - _CLUTCH_PITCHER_MEAN) / _CLUTCH_PITCHER_STD if _CLUTCH_PITCHER_STD > 0 else 0.0
             win_prob = max(0.10, min(0.55, BASE_WIN_PROB + woba_diff * 0.5 + z_clutch * _CLUTCH_WIN_WEIGHT))
             loss_prob = max(0.05, min(0.40, BASE_LOSS_PROB - woba_diff * 0.3))
+
+            # ME-4: opponent team strength — stronger teams reduce win probability
+            opp_team_elo = elo_lookup.get_team_elo(m.opponent_team)
+            opp_z = (opp_team_elo - TEAM_ELO_MEAN) / TEAM_ELO_STD if TEAM_ELO_STD > 0 else 0.0
+            win_prob = max(0.10, min(0.55, win_prob - opp_z * OPPONENT_WIN_WEIGHT))
 
             # QW-4: use actual IP/GS from Fangraphs instead of fixed 6.0
             fg_sp = fg_by_name.get(name.lower(), {})

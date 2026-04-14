@@ -1,38 +1,47 @@
-@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 @theme {
-  /* Primary color — brighter blue for dark bg */
-  --color-primary: #3B82F6;
+  --color-primary: #4d8fdb;
 
-  /* ELO tier colors */
-  --color-elo-elite: #EF4444;
-  --color-elo-high: #FB923C;
-  --color-elo-above: #FBBF24;
+  /* ELO tier colors (unchanged) */
+  --color-elo-elite:   #EF4444;
+  --color-elo-high:    #FB923C;
+  --color-elo-above:   #FBBF24;
   --color-elo-average: #9CA3AF;
-  --color-elo-below: #60A5FA;
-  --color-elo-low: #3B82F6;
-  --color-elo-cold: #6366F1;
+  --color-elo-below:   #60A5FA;
+  --color-elo-low:     #3B82F6;
+  --color-elo-cold:    #6366F1;
 
-  /* Delta colors */
-  --color-delta-up: #22C55E;
+  /* Delta colors (unchanged) */
+  --color-delta-up:   #22C55E;
   --color-delta-down: #EF4444;
 
-  /* Background colors — dark slate */
-  --color-bg-page: #0F172A;
-  --color-bg-card: #1E293B;
-  --color-border-line: #334155;
+  /* Backgrounds */
+  --color-bg-page:     #0d0d12;
+  --color-bg-card:     #16161e;
+  --color-bg-elevated: #1e1e28;
 
-  /* Font family */
-  --font-display: 'Lexend', sans-serif;
+  /* Text hierarchy */
+  --color-text-primary:   #f0f0f5;
+  --color-text-secondary: #8a8d98;
+  --color-text-tertiary:  #52545c;
 
-  /* Box shadow */
-  --shadow-modern: 0 2px 8px rgba(0,0,0,0.3);
+  /* Border */
+  --color-border-line: #242430;
+
+  --font-display: 'Inter', sans-serif;
+
+  /* Shadows */
+  --shadow-modern:   rgba(0,0,0,0.3) 0px 3px 6px;
+  --shadow-elevated: rgba(0,0,0,0.45) 0px 8px 24px;
 }
 
 body {
   background-color: var(--color-bg-page);
   font-family: var(--font-display);
-  color: #E2E8F0;
+  color: var(--color-text-primary);
   margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }

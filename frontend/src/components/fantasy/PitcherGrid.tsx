@@ -8,14 +8,14 @@ function wobaAgainstColor(woba: number): string {
   // Lower wOBA against is better for the pitcher
   if (woba <= 0.270) return 'bg-green-900/30 text-green-400';
   if (woba <= 0.300) return 'bg-green-900/20 text-green-400';
-  if (woba <= 0.330) return 'bg-white/5 text-gray-300';
+  if (woba <= 0.330) return 'bg-bg-elevated/50 text-text-primary';
   if (woba <= 0.360) return 'bg-red-900/20 text-red-400';
   return 'bg-red-900/30 text-red-400';
 }
 
 export default function PitcherGrid({ pitchers }: Props) {
   if (!pitchers.length) {
-    return <div className="text-center text-gray-400 py-8">No pitcher projections available</div>;
+    return <div className="text-center text-text-secondary py-8">No pitcher projections available</div>;
   }
 
   return (
@@ -23,20 +23,20 @@ export default function PitcherGrid({ pitchers }: Props) {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border-line">
-            <th className="text-left py-2 px-3 text-xs text-gray-400 uppercase">Pitcher</th>
-            <th className="text-left py-2 px-3 text-xs text-gray-400 uppercase w-14">Team</th>
-            <th className="text-right py-2 px-3 text-xs text-gray-400 uppercase w-14">ELO</th>
-            <th className="text-center py-2 px-3 text-xs text-gray-400 uppercase w-16">G</th>
-            <th className="text-left py-2 px-3 text-xs text-gray-400 uppercase">Matchups</th>
-            <th className="text-right py-2 px-3 text-xs text-gray-400 uppercase w-20">Total Pts</th>
+            <th className="text-left py-2 px-3 text-xs text-text-secondary uppercase">Pitcher</th>
+            <th className="text-left py-2 px-3 text-xs text-text-secondary uppercase w-14">Team</th>
+            <th className="text-right py-2 px-3 text-xs text-text-secondary uppercase w-14">ELO</th>
+            <th className="text-center py-2 px-3 text-xs text-text-secondary uppercase w-16">G</th>
+            <th className="text-left py-2 px-3 text-xs text-text-secondary uppercase">Matchups</th>
+            <th className="text-right py-2 px-3 text-xs text-text-secondary uppercase w-20">Total Pts</th>
           </tr>
         </thead>
         <tbody>
           {pitchers.map((p, idx) => (
-            <tr key={idx} className="border-b border-border-line hover:bg-white/5">
+            <tr key={idx} className="border-b border-border-line hover:bg-bg-elevated/60">
               <td className="py-2.5 px-3 font-medium">{p.name}</td>
-              <td className="py-2.5 px-3 text-gray-400">{p.team}</td>
-              <td className="py-2.5 px-3 text-right font-mono text-xs text-gray-400">{Math.round(p.compositeElo)}</td>
+              <td className="py-2.5 px-3 text-text-secondary">{p.team}</td>
+              <td className="py-2.5 px-3 text-right font-mono text-xs text-text-secondary">{Math.round(p.compositeElo)}</td>
               <td className="py-2.5 px-3 text-center tabular-nums">
                 {p.slot === 'RP' ? `${p.appearances} app` : `${p.starts} GS`}
               </td>
@@ -59,7 +59,7 @@ export default function PitcherGrid({ pitchers }: Props) {
         </tbody>
         <tfoot>
           <tr className="border-t-2 border-border-line font-semibold">
-            <td colSpan={5} className="py-2 px-3 text-gray-400">Total</td>
+            <td colSpan={5} className="py-2 px-3 text-text-secondary">Total</td>
             <td className="py-2 px-3 text-right tabular-nums">
               {pitchers.reduce((sum, p) => sum + p.totalPoints, 0).toFixed(1)}
             </td>

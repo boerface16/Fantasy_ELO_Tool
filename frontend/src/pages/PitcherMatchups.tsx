@@ -21,7 +21,7 @@ export default function PitcherMatchups() {
         <Link to="/fantasy" className="text-sm text-primary flex items-center gap-1 hover:underline">
           <ArrowLeft className="w-4 h-4" /> Back to Fantasy Dashboard
         </Link>
-        <div className="text-center text-gray-400 py-12">
+        <div className="text-center text-text-secondary py-12">
           No projection loaded. Go to the Fantasy Dashboard to generate one.
         </div>
       </div>
@@ -36,7 +36,7 @@ export default function PitcherMatchups() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold">Pitcher Matchups</h1>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-text-secondary">
             {projection.weekStart} — {projection.weekEnd}
           </p>
         </div>
@@ -49,7 +49,7 @@ export default function PitcherMatchups() {
         weekLabel="Pitcher Points"
       />
 
-      <div className="bg-bg-card rounded-xl border border-border-line shadow-sm p-5">
+      <div className="bg-bg-card rounded-lg border border-border-line shadow-modern p-5">
         <PitcherGrid pitchers={projection.pitchers} />
       </div>
     </div>

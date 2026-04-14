@@ -57,25 +57,25 @@ export default function RosterUpload({ onRosterParsed, isLoading }: Props) {
   };
 
   return (
-    <div className="bg-bg-card rounded-xl border border-border-line shadow-sm">
+    <div className="bg-bg-card rounded-lg border border-border-line shadow-modern">
       <div className="p-5">
         <div className="flex items-center gap-2 mb-3">
-          <Upload className="w-4 h-4 text-gray-400" />
-          <h3 className="text-sm font-semibold text-gray-300">Paste Your Roster</h3>
+          <Upload className="w-4 h-4 text-text-secondary" />
+          <h3 className="text-sm font-semibold text-text-primary">Paste Your Roster</h3>
         </div>
 
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={8}
-          className="w-full rounded-lg border border-border-line p-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-y"
+          className="w-full rounded-md border border-border-line bg-bg-elevated p-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-y"
         />
 
         <div className="flex items-center gap-3 mt-3">
           <button
             onClick={handleParse}
             disabled={!text.trim() || isLoading}
-            className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
           >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             Parse Roster
@@ -99,7 +99,7 @@ export default function RosterUpload({ onRosterParsed, isLoading }: Props) {
         <div className="border-t border-border-line px-5 py-3 max-h-64 overflow-y-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-xs text-gray-400 uppercase">
+              <tr className="text-xs text-text-secondary uppercase">
                 <th className="text-left py-1 w-16">Slot</th>
                 <th className="text-left py-1">Name</th>
                 <th className="text-left py-1 w-16">Team</th>
@@ -110,10 +110,10 @@ export default function RosterUpload({ onRosterParsed, isLoading }: Props) {
             <tbody>
               {entries.map((e, i) => (
                 <tr key={i} className="border-t border-border-line">
-                  <td className="py-1.5 font-mono text-gray-400">{e.slot || '—'}</td>
+                  <td className="py-1.5 font-mono text-text-secondary">{e.slot || '—'}</td>
                   <td className="py-1.5 font-medium">{e.matchedName || e.name}</td>
-                  <td className="py-1.5 text-gray-400">{e.dbTeam || e.team}</td>
-                  <td className="py-1.5 text-gray-400">{e.position || '—'}</td>
+                  <td className="py-1.5 text-text-secondary">{e.dbTeam || e.team}</td>
+                  <td className="py-1.5 text-text-secondary">{e.position || '—'}</td>
                   <td className="py-1.5">
                     {e.playerId ? (
                       <span className="text-green-600 text-xs">Matched</span>

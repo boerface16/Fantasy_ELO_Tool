@@ -61,7 +61,7 @@ export default function Leaderboard() {
             className={`px-4 py-2 rounded-lg font-semibold transition-all text-sm ${
               position === tab
                 ? 'bg-primary text-white'
-                : 'bg-white/10 text-gray-400 hover:bg-white/15'
+                : 'bg-bg-elevated text-text-secondary hover:bg-bg-elevated'
             }`}
           >
             {{ batter: 'Batter', pitcher: 'Pitcher', 'batter-fantasy': 'Batter Fantasy', 'pitcher-fantasy': 'Pitcher Fantasy' }[tab]}
@@ -91,7 +91,7 @@ export default function Leaderboard() {
         <button
           onClick={() => setPage(1)}
           disabled={page === 1}
-          className="p-2 rounded-lg hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="p-2 rounded-lg hover:bg-bg-elevated disabled:opacity-30 disabled:cursor-not-allowed"
           title="First page"
         >
           <ChevronFirst className="w-5 h-5" />
@@ -100,7 +100,7 @@ export default function Leaderboard() {
         <button
           onClick={() => setPage(p => Math.max(1, p - 1))}
           disabled={page === 1}
-          className="p-2 rounded-lg hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="p-2 rounded-lg hover:bg-bg-elevated disabled:opacity-30 disabled:cursor-not-allowed"
           title="Previous page"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -108,7 +108,7 @@ export default function Leaderboard() {
 
         <div className="flex items-center gap-1 mx-2">
           {visiblePages[0] > 1 && (
-            <span className="px-2 text-gray-400">...</span>
+            <span className="px-2 text-text-secondary">...</span>
           )}
           {visiblePages.map((p) => (
             <button
@@ -117,21 +117,21 @@ export default function Leaderboard() {
               className={`min-w-[40px] h-10 rounded-lg font-semibold transition-all ${
                 p === page
                   ? 'bg-primary text-white'
-                  : 'hover:bg-white/10 text-gray-300'
+                  : 'hover:bg-bg-elevated text-text-primary'
               }`}
             >
               {p}
             </button>
           ))}
           {visiblePages[visiblePages.length - 1] < totalPages && (
-            <span className="px-2 text-gray-400">...</span>
+            <span className="px-2 text-text-secondary">...</span>
           )}
         </div>
 
         <button
           onClick={() => setPage(p => p + 1)}
           disabled={isLastPage}
-          className="p-2 rounded-lg hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="p-2 rounded-lg hover:bg-bg-elevated disabled:opacity-30 disabled:cursor-not-allowed"
           title="Next page"
         >
           <ChevronRight className="w-5 h-5" />
@@ -140,7 +140,7 @@ export default function Leaderboard() {
         <button
           onClick={() => setPage(totalPages)}
           disabled={isLastPage || page === totalPages}
-          className="p-2 rounded-lg hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="p-2 rounded-lg hover:bg-bg-elevated disabled:opacity-30 disabled:cursor-not-allowed"
           title="Last page"
         >
           <ChevronLast className="w-5 h-5" />

@@ -13,17 +13,17 @@ export default function PlayerCard({ player }: PlayerCardProps) {
   const delta = player.delta;
 
   const DeltaIcon = delta > 0 ? ArrowUp : delta < 0 ? ArrowDown : Minus;
-  const deltaColor = delta > 0 ? 'text-delta-up' : delta < 0 ? 'text-delta-down' : 'text-gray-400';
+  const deltaColor = delta > 0 ? 'text-delta-up' : delta < 0 ? 'text-delta-down' : 'text-text-secondary';
 
   return (
     <Link
       to={`/player/${player.player_id}`}
-      className="group bg-bg-card rounded-xl shadow-modern border-t-4 p-4 transition-transform hover:-translate-y-1 cursor-pointer block"
+      className="group bg-bg-card rounded-lg shadow-modern border border-border-line border-t-4 p-4 transition-transform hover:-translate-y-1 cursor-pointer block"
       style={{ borderTopColor: teamBorderColor }}
     >
       {/* Header: Team & Delta */}
       <div className="flex justify-between items-start mb-4">
-        <div className="size-10 bg-white/10 rounded-full overflow-hidden border border-border-line flex items-center justify-center">
+        <div className="size-10 bg-bg-elevated rounded-full overflow-hidden border border-border-line flex items-center justify-center">
           <TeamLogo size={28} />
         </div>
         <div className="flex flex-col items-end">
@@ -31,7 +31,7 @@ export default function PlayerCard({ player }: PlayerCardProps) {
             <DeltaIcon className="w-3 h-3 mr-0.5" />
             {delta > 0 ? '+' : ''}{Math.round(delta)}
           </span>
-          <span className="text-[10px] text-gray-400 uppercase font-bold tracking-tighter">
+          <span className="text-[10px] text-text-secondary uppercase font-bold tracking-tighter">
             Daily Delta
           </span>
         </div>
@@ -39,7 +39,7 @@ export default function PlayerCard({ player }: PlayerCardProps) {
 
       {/* Player Info */}
       <div>
-        <p className="text-gray-400 text-xs font-medium truncate">{player.team}</p>
+        <p className="text-text-secondary text-xs font-medium truncate">{player.team}</p>
         <h4 className="text-lg font-bold truncate group-hover:text-primary transition-colors">
           {player.full_name}
         </h4>

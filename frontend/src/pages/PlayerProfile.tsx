@@ -17,12 +17,12 @@ function EloCard({ label, elo, delta, paCount, paLabel = 'PA' }: { label: string
   const tier = getEloTier(elo);
   const tierColor = getEloTierColor(tier);
   const DeltaIcon = delta > 0 ? TrendingUp : TrendingDown;
-  const deltaColor = delta > 0 ? 'text-delta-up' : delta < 0 ? 'text-delta-down' : 'text-gray-400';
+  const deltaColor = delta > 0 ? 'text-delta-up' : delta < 0 ? 'text-delta-down' : 'text-text-secondary';
   const deltaSign = delta > 0 ? '+' : '';
 
   return (
     <div className="text-center p-4 rounded-lg bg-primary/10 ring-2 ring-primary">
-      <div className="text-sm text-gray-400 mb-1">{label}</div>
+      <div className="text-sm text-text-secondary mb-1">{label}</div>
       <div className={`text-3xl font-bold ${tierColor}`}>
         {Math.round(elo)}
       </div>
@@ -30,7 +30,7 @@ function EloCard({ label, elo, delta, paCount, paLabel = 'PA' }: { label: string
         <DeltaIcon className="w-4 h-4" />
         <span>{deltaSign}{Math.round(delta)}</span>
       </div>
-      <div className="text-xs text-gray-400 mt-1">{paCount} {paLabel}</div>
+      <div className="text-xs text-text-secondary mt-1">{paCount} {paLabel}</div>
     </div>
   );
 }
@@ -39,28 +39,28 @@ function StatsGrid({ stats, role }: { stats: { totalPa: number; avgDelta: number
   return (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
       <div>
-        <div className="text-sm text-gray-400">{role === 'PITCHING' ? 'Total BF' : 'Total PA'}</div>
-        <div className="text-xl font-bold text-gray-100">{stats.totalPa}</div>
+        <div className="text-sm text-text-secondary">{role === 'PITCHING' ? 'Total BF' : 'Total PA'}</div>
+        <div className="text-xl font-bold text-text-primary">{stats.totalPa}</div>
       </div>
       <div>
-        <div className="text-sm text-gray-400">Avg Delta/Day</div>
+        <div className="text-sm text-text-secondary">Avg Delta/Day</div>
         <div className={`text-xl font-bold ${stats.avgDelta >= 0 ? 'text-delta-up' : 'text-delta-down'}`}>
           {stats.avgDelta >= 0 ? '+' : ''}{stats.avgDelta.toFixed(1)}
         </div>
       </div>
       <div>
-        <div className="text-sm text-gray-400">Highest ELO</div>
+        <div className="text-sm text-text-secondary">Highest ELO</div>
         <div className="text-xl font-bold text-elo-elite">{Math.round(stats.highestElo.value)}</div>
-        <div className="text-xs text-gray-400">{stats.highestElo.date}</div>
+        <div className="text-xs text-text-secondary">{stats.highestElo.date}</div>
       </div>
       <div>
-        <div className="text-sm text-gray-400">Lowest ELO</div>
+        <div className="text-sm text-text-secondary">Lowest ELO</div>
         <div className="text-xl font-bold text-elo-cold">{Math.round(stats.lowestElo.value)}</div>
-        <div className="text-xs text-gray-400">{stats.lowestElo.date}</div>
+        <div className="text-xs text-text-secondary">{stats.lowestElo.date}</div>
       </div>
       <div>
-        <div className="text-sm text-gray-400">Avg Range</div>
-        <div className="text-xl font-bold text-gray-100">{stats.avgRange.toFixed(1)}</div>
+        <div className="text-sm text-text-secondary">Avg Range</div>
+        <div className="text-xl font-bold text-text-primary">{stats.avgRange.toFixed(1)}</div>
       </div>
     </div>
   );
@@ -68,28 +68,28 @@ function StatsGrid({ stats, role }: { stats: { totalPa: number; avgDelta: number
 
 function LastGamesTable({ games, role }: { games: PlayerGameEntry[]; role: RoleTab }) {
   if (games.length === 0) {
-    return <p className="text-sm text-gray-500">No recent game data available.</p>;
+    return <p className="text-sm text-text-tertiary">No recent game data available.</p>;
   }
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-left text-gray-400 border-b border-white/10">
+          <tr className="text-left text-text-secondary border-b border-border-line">
             <th className="pb-2 pr-4 font-medium">Date</th>
             <th className="pb-2 pr-4 font-medium">Opp</th>
             <th className="pb-2 pr-4 font-medium text-right">ELO</th>
             <th className="pb-2 pr-4 font-medium text-right">Δ ELO</th>
             <th className="pb-2 pr-4 font-medium text-right">Pts</th>
-            <th className="pb-2 font-medium text-right text-gray-500">
+            <th className="pb-2 font-medium text-right text-text-tertiary">
               {role === 'BATTING' ? 'PA / TB / HR / BB / K' : 'IP / H / BB / K'}
             </th>
           </tr>
         </thead>
         <tbody>
           {games.map((g) => {
-            const deltaColor = g.eloDelta > 0 ? 'text-delta-up' : g.eloDelta < 0 ? 'text-delta-down' : 'text-gray-400';
-            const ptsColor = g.fantasyPoints > 0 ? 'text-delta-up' : g.fantasyPoints < 0 ? 'text-delta-down' : 'text-gray-400';
+            const deltaColor = g.eloDelta > 0 ? 'text-delta-up' : g.eloDelta < 0 ? 'text-delta-down' : 'text-text-secondary';
+            const ptsColor = g.fantasyPoints > 0 ? 'text-delta-up' : g.fantasyPoints < 0 ? 'text-delta-down' : 'text-text-secondary';
             const deltaSign = g.eloDelta > 0 ? '+' : '';
             const ptsSign = g.fantasyPoints > 0 ? '+' : '';
             const statsStr = role === 'BATTING'
@@ -97,17 +97,17 @@ function LastGamesTable({ games, role }: { games: PlayerGameEntry[]; role: RoleT
               : `${g.stats.ip ?? '–'} / ${g.stats.h ?? '–'} / ${g.stats.bb} / ${g.stats.k}`;
 
             return (
-              <tr key={g.gamePk} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                <td className="py-2 pr-4 text-gray-300">{g.date}</td>
-                <td className="py-2 pr-4 font-semibold text-gray-100">{g.opponent}</td>
-                <td className="py-2 pr-4 text-right text-gray-200">{g.elo > 0 ? g.elo.toFixed(0) : '—'}</td>
+              <tr key={g.gamePk} className="border-b border-white/5 hover:bg-bg-elevated/60 transition-colors">
+                <td className="py-2 pr-4 text-text-primary">{g.date}</td>
+                <td className="py-2 pr-4 font-semibold text-text-primary">{g.opponent}</td>
+                <td className="py-2 pr-4 text-right text-text-primary">{g.elo > 0 ? g.elo.toFixed(0) : '—'}</td>
                 <td className={`py-2 pr-4 text-right font-medium ${deltaColor}`}>
                   {g.elo > 0 ? `${deltaSign}${g.eloDelta.toFixed(1)}` : '—'}
                 </td>
                 <td className={`py-2 pr-4 text-right font-semibold ${ptsColor}`}>
                   {ptsSign}{g.fantasyPoints.toFixed(1)}
                 </td>
-                <td className="py-2 text-right text-gray-500 text-xs">{statsStr}</td>
+                <td className="py-2 text-right text-text-tertiary text-xs">{statsStr}</td>
               </tr>
             );
           })}
@@ -149,8 +149,8 @@ function RoleSection({ playerId, role }: { playerId: string; role: RoleTab }) {
   if ((ohlcLoading && eloView === 'main') || statsLoading) {
     return (
       <div className="space-y-6">
-        <div className="bg-bg-card rounded-lg shadow-sm p-6 h-[400px] animate-pulse">
-          <div className="h-full bg-white/15 rounded"></div>
+        <div className="bg-bg-card rounded-lg shadow-modern p-6 h-[400px] animate-pulse">
+          <div className="h-full bg-bg-elevated/60 rounded"></div>
         </div>
       </div>
     );
@@ -158,7 +158,7 @@ function RoleSection({ playerId, role }: { playerId: string; role: RoleTab }) {
 
   return (
     <div className="space-y-6">
-      <div className="bg-bg-card rounded-lg shadow-sm p-6">
+      <div className="bg-bg-card rounded-lg shadow-modern p-6">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold">{chartTitle}</h3>
           <div className="flex gap-1">
@@ -167,7 +167,7 @@ function RoleSection({ playerId, role }: { playerId: string; role: RoleTab }) {
                 key={s}
                 onClick={() => setChartScope(s)}
                 className={`px-3 py-1 rounded text-xs font-semibold transition-all ${
-                  chartScope === s ? 'bg-primary text-white' : 'bg-white/10 text-gray-400 hover:bg-white/15'
+                  chartScope === s ? 'bg-primary text-white' : 'bg-bg-elevated text-text-secondary hover:bg-bg-elevated'
                 }`}
               >
                 {s === 'season' ? `${seasonYear}` : 'All Time'}
@@ -180,7 +180,7 @@ function RoleSection({ playerId, role }: { playerId: string; role: RoleTab }) {
           <button
             onClick={() => setEloView('main')}
             className={`px-3 py-1 rounded text-xs font-semibold transition-all ${
-              eloView === 'main' ? 'bg-primary text-white' : 'bg-white/10 text-gray-400 hover:bg-white/15'
+              eloView === 'main' ? 'bg-primary text-white' : 'bg-bg-elevated text-text-secondary hover:bg-bg-elevated'
             }`}
           >
             Main ELO
@@ -190,7 +190,7 @@ function RoleSection({ playerId, role }: { playerId: string; role: RoleTab }) {
               key={t.type}
               onClick={() => setEloView(t.dbType)}
               className={`px-3 py-1 rounded text-xs font-semibold transition-all ${
-                eloView === t.dbType ? 'bg-primary text-white' : 'bg-white/10 text-gray-400 hover:bg-white/15'
+                eloView === t.dbType ? 'bg-primary text-white' : 'bg-bg-elevated text-text-secondary hover:bg-bg-elevated'
               }`}
             >
               {t.label}
@@ -198,25 +198,25 @@ function RoleSection({ playerId, role }: { playerId: string; role: RoleTab }) {
           ))}
         </div>
         {chartLoading ? (
-          <div className="h-[400px] bg-white/10 rounded animate-pulse" />
+          <div className="h-[400px] bg-bg-elevated/50 rounded animate-pulse" />
         ) : (
           <EloCandlestickChart data={chartData} height={400} />
         )}
       </div>
 
       {stats && (
-        <div className="bg-bg-card rounded-lg shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-gray-100 mb-4">
+        <div className="bg-bg-card rounded-lg shadow-modern p-6">
+          <h3 className="text-lg font-semibold text-text-primary mb-4">
             {role === 'BATTING' ? 'Batting' : 'Pitching'} Statistics
           </h3>
           <StatsGrid stats={stats} role={role} />
         </div>
       )}
 
-      <div className="bg-bg-card rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-100 mb-4">Last 5 Games</h3>
+      <div className="bg-bg-card rounded-lg shadow-modern p-6">
+        <h3 className="text-lg font-semibold text-text-primary mb-4">Last 5 Games</h3>
         {gamesLoading ? (
-          <div className="h-32 bg-white/10 rounded animate-pulse" />
+          <div className="h-32 bg-bg-elevated/50 rounded animate-pulse" />
         ) : (
           <LastGamesTable games={recentGames ?? []} role={role} />
         )}
@@ -234,21 +234,21 @@ export default function PlayerProfile() {
   if (eloLoading) {
     return (
       <div className="space-y-6">
-        <Link to="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-gray-100">
+        <Link to="/" className="inline-flex items-center gap-2 text-text-secondary hover:text-text-primary">
           <ArrowLeft className="w-5 h-5" />
           Back
         </Link>
-        <div className="bg-bg-card rounded-lg shadow-sm p-6 animate-pulse">
+        <div className="bg-bg-card rounded-lg shadow-modern p-6 animate-pulse">
           <div className="flex items-start gap-6">
-            <div className="w-20 h-20 bg-white/15 rounded-full"></div>
+            <div className="w-20 h-20 bg-bg-elevated/60 rounded-full"></div>
             <div className="flex-1">
-              <div className="h-8 bg-white/15 rounded w-48 mb-2"></div>
-              <div className="h-4 bg-white/15 rounded w-32"></div>
+              <div className="h-8 bg-bg-elevated/60 rounded w-48 mb-2"></div>
+              <div className="h-4 bg-bg-elevated/60 rounded w-32"></div>
             </div>
           </div>
         </div>
-        <div className="bg-bg-card rounded-lg shadow-sm p-6 h-[400px] animate-pulse">
-          <div className="h-full bg-white/15 rounded"></div>
+        <div className="bg-bg-card rounded-lg shadow-modern p-6 h-[400px] animate-pulse">
+          <div className="h-full bg-bg-elevated/60 rounded"></div>
         </div>
       </div>
     );
@@ -257,11 +257,11 @@ export default function PlayerProfile() {
   if (!playerElo) {
     return (
       <div className="space-y-6">
-        <Link to="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-gray-100">
+        <Link to="/" className="inline-flex items-center gap-2 text-text-secondary hover:text-text-primary">
           <ArrowLeft className="w-5 h-5" />
           Back
         </Link>
-        <div className="bg-bg-card rounded-lg shadow-sm p-6 text-center text-gray-400">
+        <div className="bg-bg-card rounded-lg shadow-modern p-6 text-center text-text-secondary">
           Player not found
         </div>
       </div>
@@ -292,13 +292,13 @@ export default function PlayerProfile() {
   return (
     <div className="space-y-6">
       {/* Back Button */}
-      <Link to="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-gray-100">
+      <Link to="/" className="inline-flex items-center gap-2 text-text-secondary hover:text-text-primary">
         <ArrowLeft className="w-5 h-5" />
         Back
       </Link>
 
       {/* Player Header */}
-      <div className="bg-bg-card rounded-lg shadow-sm p-6">
+      <div className="bg-bg-card rounded-lg shadow-modern p-6">
         <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
           {/* Team Badge */}
           <div
@@ -310,11 +310,11 @@ export default function PlayerProfile() {
 
           {/* Player Info */}
           <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-100">{player.full_name}</h1>
-            <p className="text-gray-400">
+            <h1 className="text-2xl font-bold text-text-primary">{player.full_name}</h1>
+            <p className="text-text-secondary">
               {player.team} | {positionLabel}
               {isTwoWay && (
-                <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-700">
+                <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded bg-amber-900/40 text-amber-400">
                   TWP
                 </span>
               )}
@@ -349,7 +349,7 @@ export default function PlayerProfile() {
               className={`px-6 py-2 rounded-lg font-semibold transition-all ${
                 activeRole === tab
                   ? 'bg-primary text-white'
-                  : 'bg-white/10 text-gray-400 hover:bg-white/15'
+                  : 'bg-bg-elevated text-text-secondary hover:bg-bg-elevated'
               }`}
             >
               {tab === 'BATTING' ? 'Batting' : 'Pitching'}

@@ -82,18 +82,18 @@ export default function EloCandlestickChart({ data, height = 400 }: EloCandlesti
         width: chartContainerRef.current.clientWidth || 600,
         height,
         layout: {
-          background: { color: '#1E293B' },
-          textColor: '#9CA3AF',
+          background: { color: '#16161e' },
+          textColor: '#8a8d98',
         },
         grid: {
-          vertLines: { color: '#334155' },
-          horzLines: { color: '#334155' },
+          vertLines: { color: '#242430' },
+          horzLines: { color: '#242430' },
         },
         timeScale: {
-          borderColor: '#334155',
+          borderColor: '#242430',
         },
         rightPriceScale: {
-          borderColor: '#334155',
+          borderColor: '#242430',
         },
       });
 
@@ -132,7 +132,7 @@ export default function EloCandlestickChart({ data, height = 400 }: EloCandlesti
 
       if (showMA15 && ma15Data.length > 0) {
         const ma15Series = chart.addSeries(LineSeries, {
-          color: '#3B82F6',
+          color: '#4d8fdb',
           lineWidth: 2,
           priceLineVisible: false,
           lastValueVisible: false,
@@ -165,7 +165,7 @@ export default function EloCandlestickChart({ data, height = 400 }: EloCandlesti
 
   if (data.length === 0) {
     return (
-      <div className="h-[400px] flex items-center justify-center text-gray-400">
+      <div className="h-[400px] flex items-center justify-center text-text-secondary">
         No data available
       </div>
     );
@@ -180,7 +180,7 @@ export default function EloCandlestickChart({ data, height = 400 }: EloCandlesti
           className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
             showOHLC
               ? 'bg-green-900/30 text-green-400 ring-1 ring-green-300'
-              : 'bg-white/10 text-gray-400'
+              : 'bg-bg-elevated text-text-secondary'
           }`}
         >
           <span className="w-3 h-3 border-2 border-green-500 rounded-sm"></span>
@@ -191,7 +191,7 @@ export default function EloCandlestickChart({ data, height = 400 }: EloCandlesti
           className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
             showMA5
               ? 'bg-orange-900/30 text-orange-400 ring-1 ring-orange-300'
-              : 'bg-white/10 text-gray-400'
+              : 'bg-bg-elevated text-text-secondary'
           }`}
         >
           <span className="w-3 h-0.5 bg-orange-500 rounded"></span>
@@ -202,7 +202,7 @@ export default function EloCandlestickChart({ data, height = 400 }: EloCandlesti
           className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
             showMA15
               ? 'bg-blue-900/30 text-blue-400 ring-1 ring-blue-300'
-              : 'bg-white/10 text-gray-400'
+              : 'bg-bg-elevated text-text-secondary'
           }`}
         >
           <span className="w-3 h-0.5 bg-blue-500 rounded"></span>

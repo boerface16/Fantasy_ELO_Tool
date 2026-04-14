@@ -13,13 +13,13 @@ export default function TalentCardSection({ playerId, position }: TalentCardSect
 
   if (isLoading) {
     return (
-      <div className="bg-bg-card rounded-lg shadow-sm p-4">
+      <div className="bg-bg-card rounded-lg shadow-modern p-4">
         <div className="flex gap-3 overflow-x-auto">
           {Array.from({ length: position === 'pitcher' ? 4 : 5 }).map((_, i) => (
-            <div key={i} className="bg-white/10 rounded-lg p-3 min-w-[100px] flex-1 animate-pulse">
-              <div className="h-4 bg-white/15 rounded mb-2" />
-              <div className="h-8 bg-white/15 rounded mb-1" />
-              <div className="h-3 bg-white/15 rounded w-2/3 mx-auto" />
+            <div key={i} className="bg-bg-elevated rounded-lg p-3 min-w-[100px] flex-1 animate-pulse">
+              <div className="h-4 bg-bg-elevated/60 rounded mb-2" />
+              <div className="h-8 bg-bg-elevated/60 rounded mb-1" />
+              <div className="h-3 bg-bg-elevated/60 rounded w-2/3 mx-auto" />
             </div>
           ))}
         </div>
@@ -40,8 +40,8 @@ export default function TalentCardSection({ playerId, position }: TalentCardSect
   if (sortedDimensions.length === 0) return null;
 
   return (
-    <div className="bg-bg-card rounded-lg shadow-sm p-4">
-      <h3 className="text-sm font-medium text-gray-400 mb-3">
+    <div className="bg-bg-card rounded-lg shadow-modern p-4">
+      <h3 className="text-sm font-medium text-text-secondary mb-3">
         {position === 'pitcher' ? 'Pitching' : 'Batting'} Talent
       </h3>
       <div className="flex gap-3 overflow-x-auto pb-2">

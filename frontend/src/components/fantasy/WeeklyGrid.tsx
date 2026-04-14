@@ -21,7 +21,7 @@ function getWeekDates(weekStart: string): string[] {
 function wobaColor(woba: number): string {
   if (woba >= 0.370) return 'bg-green-900/30 text-green-400';
   if (woba >= 0.330) return 'bg-green-900/20 text-green-400';
-  if (woba >= 0.290) return 'bg-white/5 text-gray-300';
+  if (woba >= 0.290) return 'bg-bg-elevated/50 text-text-primary';
   if (woba >= 0.250) return 'bg-red-900/20 text-red-400';
   return 'bg-red-900/30 text-red-400';
 }
@@ -30,7 +30,7 @@ export default function WeeklyGrid({ batters, weekStart }: Props) {
   const weekDates = getWeekDates(weekStart);
 
   if (!batters.length) {
-    return <div className="text-center text-gray-400 py-8">No batter projections available</div>;
+    return <div className="text-center text-text-secondary py-8">No batter projections available</div>;
   }
 
   return (
@@ -38,17 +38,17 @@ export default function WeeklyGrid({ batters, weekStart }: Props) {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border-line">
-            <th className="text-left py-2 px-2 text-xs text-gray-400 uppercase w-12">Slot</th>
-            <th className="text-left py-2 px-2 text-xs text-gray-400 uppercase min-w-[140px]">Player</th>
-            <th className="text-left py-2 px-2 text-xs text-gray-400 uppercase w-12">Team</th>
-            <th className="text-right py-2 px-2 text-xs text-gray-400 uppercase w-14">ELO</th>
+            <th className="text-left py-2 px-2 text-xs text-text-secondary uppercase w-12">Slot</th>
+            <th className="text-left py-2 px-2 text-xs text-text-secondary uppercase min-w-[140px]">Player</th>
+            <th className="text-left py-2 px-2 text-xs text-text-secondary uppercase w-12">Team</th>
+            <th className="text-right py-2 px-2 text-xs text-text-secondary uppercase w-14">ELO</th>
             {DAY_LABELS.map((day, i) => (
-              <th key={i} className="text-center py-2 px-2 text-xs text-gray-400 uppercase w-20">
+              <th key={i} className="text-center py-2 px-2 text-xs text-text-secondary uppercase w-20">
                 {day}
               </th>
             ))}
-            <th className="text-right py-2 px-2 text-xs text-gray-400 uppercase w-16">Total</th>
-            <th className="text-right py-2 px-2 text-xs text-gray-400 uppercase w-16">PPG</th>
+            <th className="text-right py-2 px-2 text-xs text-text-secondary uppercase w-16">Total</th>
+            <th className="text-right py-2 px-2 text-xs text-text-secondary uppercase w-16">PPG</th>
           </tr>
         </thead>
         <tbody>
@@ -59,15 +59,15 @@ export default function WeeklyGrid({ batters, weekStart }: Props) {
             }
 
             return (
-              <tr key={idx} className="border-b border-border-line hover:bg-white/5">
-                <td className="py-2 px-2 font-mono text-gray-400 text-xs">{b.slot}</td>
+              <tr key={idx} className="border-b border-border-line hover:bg-bg-elevated/60">
+                <td className="py-2 px-2 font-mono text-text-secondary text-xs">{b.slot}</td>
                 <td className="py-2 px-2 font-medium">{b.name}</td>
-                <td className="py-2 px-2 text-gray-400">{b.team}</td>
-                <td className="py-2 px-2 text-right font-mono text-xs text-gray-400">{Math.round(b.compositeElo)}</td>
+                <td className="py-2 px-2 text-text-secondary">{b.team}</td>
+                <td className="py-2 px-2 text-right font-mono text-xs text-text-secondary">{Math.round(b.compositeElo)}</td>
                 {weekDates.map((date) => {
                   const m = matchupByDate[date];
                   if (!m) {
-                    return <td key={date} className="py-2 px-2 text-center text-gray-400">—</td>;
+                    return <td key={date} className="py-2 px-2 text-center text-text-secondary">—</td>;
                   }
                   return (
                     <td key={date} className="py-2 px-1 text-center">
@@ -79,14 +79,14 @@ export default function WeeklyGrid({ batters, weekStart }: Props) {
                   );
                 })}
                 <td className="py-2 px-2 text-right font-bold tabular-nums">{b.totalPoints.toFixed(1)}</td>
-                <td className="py-2 px-2 text-right text-gray-400 tabular-nums">{b.pointsPerGame.toFixed(1)}</td>
+                <td className="py-2 px-2 text-right text-text-secondary tabular-nums">{b.pointsPerGame.toFixed(1)}</td>
               </tr>
             );
           })}
         </tbody>
         <tfoot>
           <tr className="border-t-2 border-border-line font-semibold">
-            <td colSpan={4} className="py-2 px-2 text-gray-400">Total</td>
+            <td colSpan={4} className="py-2 px-2 text-text-secondary">Total</td>
             {weekDates.map((date) => {
               const dayTotal = batters.reduce((sum, b) => {
                 const m = b.matchups.find((m) => m.date === date);

@@ -35,7 +35,7 @@ export default function MatchupBar({ probabilities }: MatchupBarProps) {
       </div>
 
       {/* Legend row */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-secondary">
         {OUTCOME_CONFIG.map(({ key, label, color }) => (
           <div key={key} className="flex items-center gap-1.5">
             <span className={`inline-block w-2.5 h-2.5 rounded-sm ${color}`} />

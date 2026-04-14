@@ -11,17 +11,17 @@ interface LeaderboardTableProps {
 
 export default function LeaderboardTable({ players, isLoading = false, startRank = 1, position }: LeaderboardTableProps) {
   return (
-    <div className="bg-bg-card rounded-xl shadow-sm border border-border-line overflow-hidden">
+    <div className="bg-bg-card rounded-lg shadow-modern border border-border-line overflow-hidden">
       <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-border-line bg-white/5">
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">#</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Player</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Team</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">ELO</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">PA</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Last Game</th>
+          <tr className="border-b border-border-line bg-bg-elevated/40">
+            <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">#</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Player</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Team</th>
+            <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase">ELO</th>
+            <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase">PA</th>
+            <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase">Last Game</th>
           </tr>
         </thead>
         <tbody>
@@ -29,13 +29,13 @@ export default function LeaderboardTable({ players, isLoading = false, startRank
             Array.from({ length: 5 }).map((_, i) => (
               <tr key={i} className="animate-pulse border-b border-border-line">
                 <td colSpan={6} className="px-4 py-4">
-                  <div className="h-5 bg-white/15 rounded w-full"></div>
+                  <div className="h-5 bg-bg-elevated/60 rounded w-full"></div>
                 </td>
               </tr>
             ))
           ) : players.length === 0 ? (
             <tr>
-              <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+              <td colSpan={6} className="px-4 py-8 text-center text-text-secondary">
                 No players found
               </td>
             </tr>
@@ -67,23 +67,23 @@ function LeaderboardRow({ player, rank, position }: { player: LeaderboardPlayer;
   return (
     <tr
       onClick={() => navigate(`/player/${player.player_id}`)}
-      className="border-b border-border-line hover:bg-white/5 cursor-pointer transition-colors"
+      className="border-b border-border-line hover:bg-bg-elevated/60 cursor-pointer transition-colors"
     >
-      <td className="px-4 py-3 text-sm font-bold text-gray-400">{rank}</td>
-      <td className="px-4 py-3 text-sm font-semibold text-gray-100">
+      <td className="px-4 py-3 text-sm font-bold text-text-secondary">{rank}</td>
+      <td className="px-4 py-3 text-sm font-semibold text-text-primary">
         {player.full_name}
         {isTwoWay && (
-          <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+          <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400">
             TWP
           </span>
         )}
       </td>
-      <td className="px-4 py-3 text-sm text-gray-400 font-mono">{player.team}</td>
+      <td className="px-4 py-3 text-sm text-text-secondary font-mono">{player.team}</td>
       <td className={`px-4 py-3 text-sm font-bold text-right ${tierColor}`}>
         {Math.round(roleElo)}
       </td>
-      <td className="px-4 py-3 text-sm text-right text-gray-400">{rolePa}</td>
-      <td className="px-4 py-3 text-sm text-right text-gray-400">{player.last_game_date}</td>
+      <td className="px-4 py-3 text-sm text-right text-text-secondary">{rolePa}</td>
+      <td className="px-4 py-3 text-sm text-right text-text-secondary">{player.last_game_date}</td>
     </tr>
   );
 }

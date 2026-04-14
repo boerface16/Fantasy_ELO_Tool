@@ -13,7 +13,7 @@ export default function TeamEloBadge({ teamCode, elo }: Props) {
     ? 'bg-green-900/30 text-green-400 border-green-800'
     : isCold
       ? 'bg-red-900/30 text-red-400 border-red-800'
-      : 'bg-white/5 text-gray-400 border-border-line';
+      : 'bg-bg-elevated/50 text-text-secondary border-border-line';
 
   const Icon = isHot ? TrendingUp : isCold ? TrendingDown : Minus;
 

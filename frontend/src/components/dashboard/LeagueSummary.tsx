@@ -11,14 +11,14 @@ export default function LeagueSummary({ activePlayersCount, averageElo, eliteCou
   if (isLoading) {
     return (
       <footer className="mt-12 bg-bg-card p-6 rounded-2xl shadow-modern border border-border-line animate-pulse">
-        <div className="h-4 bg-white/15 rounded w-32 mb-6"></div>
+        <div className="h-4 bg-bg-elevated/60 rounded w-32 mb-6"></div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {[...Array(3)].map((_, i) => (
             <div key={i} className="flex items-center gap-4">
-              <div className="bg-white/15 p-3 rounded-full w-11 h-11"></div>
+              <div className="bg-bg-elevated/60 p-3 rounded-full w-11 h-11"></div>
               <div>
-                <div className="h-6 bg-white/15 rounded w-16 mb-1"></div>
-                <div className="h-4 bg-white/15 rounded w-24"></div>
+                <div className="h-6 bg-bg-elevated/60 rounded w-16 mb-1"></div>
+                <div className="h-4 bg-bg-elevated/60 rounded w-24"></div>
               </div>
             </div>
           ))}
@@ -29,7 +29,7 @@ export default function LeagueSummary({ activePlayersCount, averageElo, eliteCou
 
   return (
     <footer className="mt-12 bg-bg-card p-6 rounded-2xl shadow-modern border border-border-line">
-      <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 mb-6 border-b border-border-line pb-2">
+      <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-text-secondary mb-6 border-b border-border-line pb-2">
         League Summary
       </h4>
 
@@ -40,7 +40,7 @@ export default function LeagueSummary({ activePlayersCount, averageElo, eliteCou
           </div>
           <div>
             <p className="text-2xl font-bold">{activePlayersCount}</p>
-            <p className="text-sm text-gray-400">Active Players</p>
+            <p className="text-sm text-text-secondary">Active Players</p>
           </div>
         </div>
 
@@ -50,7 +50,7 @@ export default function LeagueSummary({ activePlayersCount, averageElo, eliteCou
           </div>
           <div>
             <p className="text-2xl font-bold">{averageElo}</p>
-            <p className="text-sm text-gray-400">Average League ELO</p>
+            <p className="text-sm text-text-secondary">Average League ELO</p>
           </div>
         </div>
 
@@ -60,7 +60,7 @@ export default function LeagueSummary({ activePlayersCount, averageElo, eliteCou
           </div>
           <div>
             <p className="text-2xl font-bold text-elo-elite">{eliteCount}</p>
-            <p className="text-sm text-gray-400">Elite Tier (1800+)</p>
+            <p className="text-sm text-text-secondary">Elite Tier (1800+)</p>
           </div>
         </div>
       </div>

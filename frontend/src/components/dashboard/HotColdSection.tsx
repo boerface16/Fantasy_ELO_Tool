@@ -18,7 +18,7 @@ export default function HotColdSection({ type, date }: HotColdSectionProps) {
   const isHot = type === 'hot';
   const Icon = isHot ? TrendingUp : TrendingDown;
   const title = isHot ? 'Daily Hot Players' : 'Daily Cold Players';
-  const iconColor = isHot ? 'text-green-600' : 'text-red-600';
+  const iconColor = isHot ? 'text-delta-up' : 'text-delta-down';
 
   return (
     <section className="mb-8">
@@ -32,8 +32,8 @@ export default function HotColdSection({ type, date }: HotColdSectionProps) {
               onClick={() => setRole(r)}
               className={`px-3 py-1 rounded text-xs font-semibold transition-all ${
                 role === r
-                  ? 'bg-primary text-white'
-                  : 'bg-white/10 text-gray-400 hover:bg-white/15'
+                  ? 'bg-primary text-text-primary'
+                  : 'bg-bg-elevated text-text-secondary hover:bg-bg-elevated'
               }`}
             >
               {r === 'BATTING' ? 'Batters' : 'Pitchers'}
@@ -45,7 +45,7 @@ export default function HotColdSection({ type, date }: HotColdSectionProps) {
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="bg-bg-card rounded-xl h-40 animate-pulse shadow-modern" />
+            <div key={i} className="bg-bg-card rounded-lg h-40 animate-pulse shadow-modern" />
           ))}
         </div>
       ) : (

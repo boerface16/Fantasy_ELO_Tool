@@ -42,7 +42,7 @@ function ThreeWayBar({ a, b, c, aColor, bColor, cColor }: {
 
 function ZLabel({ label, value }: { label: string; value: number }) {
   const sign = value >= 0 ? '+' : '';
-  const color = value > 0 ? 'text-green-600' : value < 0 ? 'text-red-500' : 'text-gray-400';
+  const color = value > 0 ? 'text-delta-up' : value < 0 ? 'text-delta-down' : 'text-text-secondary';
   return (
     <span className={`text-xs ${color}`}>
       {label} {sign}{value.toFixed(2)}
@@ -54,17 +54,17 @@ export default function StageResults({ stages, zDiffs }: StageResultsProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {/* Stage 1 */}
-      <div className="bg-bg-card rounded-xl p-4 shadow-sm border border-border-line">
-        <div className="text-xs font-semibold text-gray-400 mb-1">STAGE 1</div>
+      <div className="bg-bg-card rounded-lg p-4 shadow-modern border border-border-line">
+        <div className="text-xs font-semibold text-text-secondary mb-1">STAGE 1</div>
         <div className="font-semibold text-sm mb-2">BB / K / BIP Split</div>
         <ThreeWayBar
           a={stages.stage1.pBB} b={stages.stage1.pK} c={stages.stage1.pBIP}
           aColor="bg-blue-500" bColor="bg-red-500" cColor="bg-gray-400"
         />
         <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-2">
-          <span className="text-xs text-gray-400">BB {(stages.stage1.pBB * 100).toFixed(1)}%</span>
-          <span className="text-xs text-gray-400">K {(stages.stage1.pK * 100).toFixed(1)}%</span>
-          <span className="text-xs text-gray-400">BIP {(stages.stage1.pBIP * 100).toFixed(1)}%</span>
+          <span className="text-xs text-text-secondary">BB {(stages.stage1.pBB * 100).toFixed(1)}%</span>
+          <span className="text-xs text-text-secondary">K {(stages.stage1.pK * 100).toFixed(1)}%</span>
+          <span className="text-xs text-text-secondary">BIP {(stages.stage1.pBIP * 100).toFixed(1)}%</span>
         </div>
         <div className="flex flex-wrap gap-x-3 mt-1.5">
           <ZLabel label="Disc-Cmd" value={zDiffs.zDiscCmd} />
@@ -73,16 +73,16 @@ export default function StageResults({ stages, zDiffs }: StageResultsProps) {
       </div>
 
       {/* Stage 2 */}
-      <div className="bg-bg-card rounded-xl p-4 shadow-sm border border-border-line">
-        <div className="text-xs font-semibold text-gray-400 mb-1">STAGE 2</div>
+      <div className="bg-bg-card rounded-lg p-4 shadow-modern border border-border-line">
+        <div className="text-xs font-semibold text-text-secondary mb-1">STAGE 2</div>
         <div className="font-semibold text-sm mb-2">Hit / Out given BIP</div>
         <MiniBar
           left={stages.stage2.pHitGivenBIP} right={stages.stage2.pOutGivenBIP}
           leftColor="bg-green-500" rightColor="bg-gray-400"
         />
         <div className="flex gap-3 mt-2">
-          <span className="text-xs text-gray-400">Hit {(stages.stage2.pHitGivenBIP * 100).toFixed(1)}%</span>
-          <span className="text-xs text-gray-400">Out {(stages.stage2.pOutGivenBIP * 100).toFixed(1)}%</span>
+          <span className="text-xs text-text-secondary">Hit {(stages.stage2.pHitGivenBIP * 100).toFixed(1)}%</span>
+          <span className="text-xs text-text-secondary">Out {(stages.stage2.pOutGivenBIP * 100).toFixed(1)}%</span>
         </div>
         <div className="mt-1.5">
           <ZLabel label="Con-BIPSupp" value={zDiffs.zContactBip} />
@@ -90,16 +90,16 @@ export default function StageResults({ stages, zDiffs }: StageResultsProps) {
       </div>
 
       {/* Stage 3 */}
-      <div className="bg-bg-card rounded-xl p-4 shadow-sm border border-border-line">
-        <div className="text-xs font-semibold text-gray-400 mb-1">STAGE 3</div>
+      <div className="bg-bg-card rounded-lg p-4 shadow-modern border border-border-line">
+        <div className="text-xs font-semibold text-text-secondary mb-1">STAGE 3</div>
         <div className="font-semibold text-sm mb-2">XBH / Single given Hit</div>
         <MiniBar
           left={stages.stage3.pXBHGivenHit} right={stages.stage3.p1BGivenHit}
           leftColor="bg-green-700" rightColor="bg-green-400"
         />
         <div className="flex gap-3 mt-2">
-          <span className="text-xs text-gray-400">XBH {(stages.stage3.pXBHGivenHit * 100).toFixed(1)}%</span>
-          <span className="text-xs text-gray-400">1B {(stages.stage3.p1BGivenHit * 100).toFixed(1)}%</span>
+          <span className="text-xs text-text-secondary">XBH {(stages.stage3.pXBHGivenHit * 100).toFixed(1)}%</span>
+          <span className="text-xs text-text-secondary">1B {(stages.stage3.p1BGivenHit * 100).toFixed(1)}%</span>
         </div>
         <div className="mt-1.5">
           <ZLabel label="Stuff-Power" value={zDiffs.zStuffPower} />

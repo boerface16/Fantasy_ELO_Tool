@@ -22,17 +22,17 @@ export default function TalentCard({ label, iconName, elo, rank, totalPlayers, p
   const topPercent = percentile !== null ? Math.round(100 - percentile) : null;
 
   return (
-    <div className="bg-bg-card rounded-lg shadow-sm p-3 text-center min-w-[100px] flex-1">
+    <div className="bg-bg-card rounded-lg shadow-modern p-3 text-center min-w-[100px] flex-1">
       <div className="flex items-center justify-center gap-1 mb-1">
-        <Icon className="w-4 h-4 text-gray-400" />
-        <span className="text-xs text-gray-400 uppercase tracking-wide font-medium">
+        <Icon className="w-4 h-4 text-text-secondary" />
+        <span className="text-xs text-text-secondary uppercase tracking-wide font-medium">
           {label}
         </span>
       </div>
       <div className={`text-2xl font-bold ${tierColor}`}>
         {Math.round(elo).toLocaleString()}
       </div>
-      <div className="text-xs text-gray-400 mt-1">
+      <div className="text-xs text-text-secondary mt-1">
         {rank !== null && totalPlayers > 0 && (
           <span>#{rank}/{totalPlayers}</span>
         )}

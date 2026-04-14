@@ -22,16 +22,16 @@ export default function Header() {
   }
 
   function linkClass(to: string, exact: boolean) {
-    return `px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-      isActive(to, exact) ? 'bg-primary text-white' : 'text-gray-400 hover:bg-white/10'
+    return `px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+      isActive(to, exact) ? 'bg-primary text-text-primary' : 'text-text-secondary hover:bg-bg-elevated'
     }`;
   }
 
   return (
-    <header className="sticky top-0 z-50 bg-bg-card border-b border-border-line shadow-sm">
+    <header className="sticky top-0 z-50 bg-bg-card/80 backdrop-blur-md border-b border-border-line shadow-sm">
       <div className="max-w-[1200px] mx-auto px-4 md:px-10 py-3 flex items-center justify-between gap-4">
         {/* Logo */}
-        <Link to="/" className="text-xl font-bold leading-tight tracking-tight text-primary shrink-0">
+        <Link to="/" className="text-xl font-semibold leading-tight tracking-tight text-primary shrink-0">
           Beer's Fantasy Baseball Tool
         </Link>
 
@@ -51,7 +51,7 @@ export default function Header() {
 
         {/* Mobile hamburger */}
         <button
-          className="md:hidden flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-gray-300"
+          className="md:hidden flex h-10 w-10 items-center justify-center rounded-lg bg-bg-elevated text-text-secondary"
           onClick={() => setMenuOpen((o) => !o)}
           aria-label="Toggle menu"
         >
@@ -61,7 +61,7 @@ export default function Header() {
 
       {/* Mobile dropdown */}
       {menuOpen && (
-        <div className="md:hidden border-t border-border-line bg-bg-card px-4 py-3 flex flex-col gap-1">
+        <div className="md:hidden border-t border-border-line bg-bg-card/95 backdrop-blur-md px-4 py-3 flex flex-col gap-1">
           {NAV_LINKS.map(({ to, label, exact }) => (
             <Link
               key={to}

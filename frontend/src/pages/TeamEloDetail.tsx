@@ -31,15 +31,15 @@ export default function TeamEloDetail() {
         width: chartContainerRef.current.clientWidth || 600,
         height: 400,
         layout: {
-          background: { color: '#1E293B' },
-          textColor: '#9CA3AF',
+          background: { color: '#16161e' },
+          textColor: '#8a8d98',
         },
         grid: {
-          vertLines: { color: '#334155' },
-          horzLines: { color: '#334155' },
+          vertLines: { color: '#242430' },
+          horzLines: { color: '#242430' },
         },
-        timeScale: { borderColor: '#334155' },
-        rightPriceScale: { borderColor: '#334155' },
+        timeScale: { borderColor: '#242430' },
+        rightPriceScale: { borderColor: '#242430' },
       });
 
       chartRef.current = chart;
@@ -87,7 +87,7 @@ export default function TeamEloDetail() {
     <div className="space-y-6">
       {/* Back link + header */}
       <div className="flex items-center gap-4">
-        <Link to="/team-elo" className="p-2 rounded-lg hover:bg-white/10 text-gray-400">
+        <Link to="/team-elo" className="p-2 rounded-lg hover:bg-bg-elevated text-text-secondary">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="flex items-center gap-3">
@@ -97,7 +97,7 @@ export default function TeamEloDetail() {
           />
           <h2 className="text-3xl font-bold tracking-tight">{teamCode}</h2>
           {detail && (
-            <span className="text-xl text-gray-400 font-mono ml-2">
+            <span className="text-xl text-text-secondary font-mono ml-2">
               {Math.round(detail.currentElo)}
             </span>
           )}
@@ -105,27 +105,27 @@ export default function TeamEloDetail() {
       </div>
 
       {/* Chart */}
-      <div className="bg-bg-card rounded-xl border border-border-line p-4">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+      <div className="bg-bg-card rounded-lg border border-border-line p-4">
+        <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">
           ELO Over Time
         </h3>
         {isLoading ? (
-          <div className="h-[400px] flex items-center justify-center text-gray-400">Loading...</div>
+          <div className="h-[400px] flex items-center justify-center text-text-secondary">Loading...</div>
         ) : history.length === 0 ? (
-          <div className="h-[400px] flex items-center justify-center text-gray-400">No history available</div>
+          <div className="h-[400px] flex items-center justify-center text-text-secondary">No history available</div>
         ) : (
           <div ref={chartContainerRef} />
         )}
       </div>
 
       {/* Game Log */}
-      <div className="bg-bg-card rounded-xl border border-border-line overflow-hidden">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider px-4 py-3 border-b border-border-line">
+      <div className="bg-bg-card rounded-lg border border-border-line overflow-hidden">
+        <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider px-4 py-3 border-b border-border-line">
           Game Log
         </h3>
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border-line text-gray-400 text-xs uppercase tracking-wider">
+            <tr className="border-b border-border-line text-text-secondary text-xs uppercase tracking-wider">
               <th className="text-left px-4 py-2">Date</th>
               <th className="text-left px-4 py-2">Opponent</th>
               <th className="text-center px-4 py-2">Result</th>
@@ -138,24 +138,24 @@ export default function TeamEloDetail() {
             {[...history].reverse().slice(0, 30).map((game, idx) => {
               const change = game.eloAfter - game.eloBefore;
               return (
-                <tr key={idx} className="border-b border-border-line last:border-0 hover:bg-white/5">
-                  <td className="px-4 py-2 text-gray-300">{game.date}</td>
-                  <td className="px-4 py-2 text-gray-300">{game.opponent}</td>
+                <tr key={idx} className="border-b border-border-line last:border-0 hover:bg-bg-elevated/60">
+                  <td className="px-4 py-2 text-text-primary">{game.date}</td>
+                  <td className="px-4 py-2 text-text-primary">{game.opponent}</td>
                   <td className="px-4 py-2 text-center">
                     <span className={game.result === 'W' ? 'text-green-400' : 'text-red-400'}>
                       {game.result}
                     </span>
                   </td>
                   <td className="px-4 py-2 text-right font-mono">
-                    <span className={game.runDiff > 0 ? 'text-green-400' : game.runDiff < 0 ? 'text-red-400' : 'text-gray-400'}>
+                    <span className={game.runDiff > 0 ? 'text-green-400' : game.runDiff < 0 ? 'text-red-400' : 'text-text-secondary'}>
                       {game.runDiff > 0 ? '+' : ''}{game.runDiff}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-right font-mono text-gray-100">
+                  <td className="px-4 py-2 text-right font-mono text-text-primary">
                     {Math.round(game.eloAfter)}
                   </td>
                   <td className="px-4 py-2 text-right font-mono">
-                    <span className={change > 0 ? 'text-green-400' : change < 0 ? 'text-red-400' : 'text-gray-400'}>
+                    <span className={change > 0 ? 'text-green-400' : change < 0 ? 'text-red-400' : 'text-text-secondary'}>
                       {change > 0 ? '+' : ''}{change.toFixed(1)}
                     </span>
                   </td>

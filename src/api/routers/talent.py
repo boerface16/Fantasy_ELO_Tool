@@ -31,7 +31,7 @@ async def player_talent_ohlc(player_id: int, talent_type: str = Query(...), seas
     sb = get_supabase()
     query = (
         sb.table("talent_daily_ohlc")
-        .select("game_date, open, high, low, close, total_pa, talent_type")
+        .select("game_date, open_elo, high_elo, low_elo, close_elo, total_pa, talent_type")
         .eq("player_id", player_id)
         .eq("talent_type", talent_type)
         .eq("elo_type", "SEASON")
@@ -43,11 +43,11 @@ async def player_talent_ohlc(player_id: int, talent_type: str = Query(...), seas
     return [
         {
             "game_date": r["game_date"],
-            "open":      r["open"],
-            "high":      r["high"],
-            "low":       r["low"],
-            "close":     r["close"],
-            "delta":     r["close"] - r["open"],
+            "open":      r["open_elo"],
+            "high":      r["high_elo"],
+            "low":       r["low_elo"],
+            "close":     r["close_elo"],
+            "delta":     r["close_elo"] - r["open_elo"],
             "total_pa":  r["total_pa"],
             "role":      talent_type,
         }
@@ -61,6 +61,7 @@ async def talent_leaderboard(
     player_role: str = Query(..., alias="role"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    min_pa: int = Query(20, ge=0),
 ):
     sb = get_supabase()
     offset = (page - 1) * limit
@@ -70,6 +71,8 @@ async def talent_leaderboard(
         .select("player_id, season_elo, career_elo, pa_count, players!inner(full_name, team, position)")
         .eq("talent_type", talent_type)
         .eq("player_role", player_role)
+        .gte("pa_count", min_pa)
+        .not_.is_("season_elo", "null")
         .order("season_elo", desc=True)
         .range(offset, offset + limit - 1)
         .execute()

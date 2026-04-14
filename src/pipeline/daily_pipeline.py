@@ -180,6 +180,41 @@ def _prepare_talent_ohlc_records(ohlc_list: list[dict]) -> list[dict]:
     return records
 
 
+def _build_talent_reset_records(
+    batters: dict,
+    pitchers: dict,
+) -> list[dict]:
+    """Build talent_player_current records for ALL players after a season reset.
+
+    Called once at season boundary so that inactive players get pa_count=0
+    written to the DB rather than carrying last season's stale values.
+    """
+    records = []
+    for pid, dual in batters.items():
+        for b_idx, dim_name in enumerate(BATTER_DIM_NAMES):
+            records.append({
+                'player_id': pid,
+                'player_role': 'batter',
+                'talent_type': dim_name,
+                'season_elo': round(float(dual.season.elo_dimensions[b_idx]), 4),
+                'career_elo': round(float(dual.career.elo_dimensions[b_idx]), 4),
+                'event_count': int(dual.season.event_counts[b_idx]),
+                'pa_count': dual.season.pa_count,  # 0 after reset
+            })
+    for pid, dual in pitchers.items():
+        for p_idx, dim_name in enumerate(PITCHER_DIM_NAMES):
+            records.append({
+                'player_id': pid,
+                'player_role': 'pitcher',
+                'talent_type': dim_name,
+                'season_elo': round(float(dual.season.elo_dimensions[p_idx]), 4),
+                'career_elo': round(float(dual.career.elo_dimensions[p_idx]), 4),
+                'event_count': int(dual.season.event_counts[p_idx]),
+                'pa_count': dual.season.bfp_count,  # 0 after reset
+            })
+    return records
+
+
 def _detect_season_boundary(client, target_date: date) -> bool:
     """Check if target_date is the first game day of a new season.
 
@@ -425,6 +460,10 @@ def run_daily_pipeline(target_date: date = None, force: bool = False) -> dict:
     if new_ids:
         new_player_count = register_new_players(new_ids, pa_df, client)
 
+    # Detect season boundary BEFORE uploading PAs — once PAs are written, the
+    # check would compare target_date.year against itself and always return False.
+    is_new_season = _detect_season_boundary(client, target_date)
+
     # 5. plate_appearances upsert
     logger.info("  Uploading plate appearances...")
     pa_records = prepare_pa_records(pa_df)
@@ -434,7 +473,7 @@ def run_daily_pipeline(target_date: date = None, force: bool = False) -> dict:
     initial_states = load_current_elo_states(client)
 
     # Season boundary: apply base ELO reset if entering a new year
-    if _detect_season_boundary(client, target_date):
+    if is_new_season:
         _apply_base_elo_season_reset(initial_states, target_date.year)
 
     # 7. 증분 ELO 계산
@@ -469,9 +508,13 @@ def run_daily_pipeline(target_date: date = None, force: bool = False) -> dict:
     logger.info("  Running incremental Talent ELO calculation...")
     initial_batters, initial_pitchers = load_current_talent_states(client)
 
-    # Season boundary: apply projection-based reset if entering a new year
-    if _detect_season_boundary(client, target_date):
+    # Season boundary: apply projection-based reset, then flush ALL states so
+    # inactive players get pa_count=0 rather than carrying last season's values.
+    if is_new_season:
         _apply_talent_season_reset(initial_batters, initial_pitchers, target_date.year)
+        logger.info("  Flushing season-reset talent states for all players...")
+        reset_records = _build_talent_reset_records(initial_batters, initial_pitchers)
+        upload_table(client, 'talent_player_current', reset_records)
 
     talent_batch = TalentBatch(initial_batters=initial_batters, initial_pitchers=initial_pitchers)
     talent_batch.process(pa_df)

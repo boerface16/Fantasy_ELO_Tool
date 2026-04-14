@@ -67,6 +67,12 @@ export default function EloCandlestickChart({ data, height = 400 }: EloCandlesti
   const ma5Data = useMemo(() => calculateMA(data, 5), [data]);
   const ma15Data = useMemo(() => calculateMA(data, 15), [data]);
 
+  // Detect flat data: all candles have zero height (open=high=low=close)
+  const isFlat = useMemo(
+    () => data.length > 0 && data.every(d => d.high === d.low),
+    [data],
+  );
+
   useEffect(() => {
     if (!chartContainerRef.current || data.length === 0) return;
 
@@ -100,24 +106,39 @@ export default function EloCandlestickChart({ data, height = 400 }: EloCandlesti
       chartRef.current = chart;
 
       if (showOHLC) {
-        const candlestickSeries = chart.addSeries(CandlestickSeries, {
-          upColor: '#16A34A',
-          downColor: '#DC2626',
-          borderUpColor: '#16A34A',
-          borderDownColor: '#DC2626',
-          wickUpColor: '#16A34A',
-          wickDownColor: '#DC2626',
-        });
+        if (isFlat) {
+          // Zero-height candles are invisible — render as a line instead
+          const lineSeries = chart.addSeries(LineSeries, {
+            color: '#16A34A',
+            lineWidth: 2,
+            priceLineVisible: false,
+            lastValueVisible: true,
+          });
+          const lineData: LineData<Time>[] = data.map(d => ({
+            time: d.game_date as Time,
+            value: d.close,
+          }));
+          lineSeries.setData(lineData);
+        } else {
+          const candlestickSeries = chart.addSeries(CandlestickSeries, {
+            upColor: '#16A34A',
+            downColor: '#DC2626',
+            borderUpColor: '#16A34A',
+            borderDownColor: '#DC2626',
+            wickUpColor: '#16A34A',
+            wickDownColor: '#DC2626',
+          });
 
-        const chartData: CandlestickData<Time>[] = data.map(d => ({
-          time: d.game_date as Time,
-          open: d.open,
-          high: d.high,
-          low: d.low,
-          close: d.close,
-        }));
+          const chartData: CandlestickData<Time>[] = data.map(d => ({
+            time: d.game_date as Time,
+            open: d.open,
+            high: d.high,
+            low: d.low,
+            close: d.close,
+          }));
 
-        candlestickSeries.setData(chartData);
+          candlestickSeries.setData(chartData);
+        }
       }
 
       if (showMA5 && ma5Data.length > 0) {
@@ -150,7 +171,7 @@ export default function EloCandlestickChart({ data, height = 400 }: EloCandlesti
         chartRef.current = null;
       }
     };
-  }, [data, height, showOHLC, showMA5, showMA15, ma5Data, ma15Data]);
+  }, [data, height, showOHLC, showMA5, showMA15, ma5Data, ma15Data, isFlat]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -209,6 +230,13 @@ export default function EloCandlestickChart({ data, height = 400 }: EloCandlesti
           MA15
         </button>
       </div>
+
+      {/* Flat-data notice */}
+      {isFlat && (
+        <div className="text-xs text-text-secondary mb-2">
+          ELO unchanged — no qualifying events in this period
+        </div>
+      )}
 
       {/* Chart */}
       <div ref={chartContainerRef} />

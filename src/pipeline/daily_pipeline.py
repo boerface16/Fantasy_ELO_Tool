@@ -40,7 +40,10 @@ from src.engine.preseason_projections import (
 from src.etl.fetch_statcast import fetch_statcast_date
 from src.etl.statcast_to_pa import convert_statcast_to_pa
 from src.etl.player_registry import detect_new_player_ids_batch, register_new_players
-from src.etl.upload_to_supabase import get_supabase_client, upload_table, prepare_pa_records
+from src.etl.upload_to_supabase import (
+    get_supabase_client, upload_table, prepare_pa_records,
+    prepare_pa_detail_records, prepare_ohlc_records,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -365,45 +368,8 @@ def delete_date_data(client, target_date: date):
     logger.info(f"  Deleted plate_appearances for {date_str}")
 
 
-def _prepare_pa_detail_records(pa_details: list[dict]) -> list[dict]:
-    """elo_pa_detail 레코드 변환 (run_elo.py 로직 재사용)."""
-    records = []
-    for d in pa_details:
-        records.append({
-            'pa_id': int(d['pa_id']),
-            'batter_id': int(d['batter_id']),
-            'pitcher_id': int(d['pitcher_id']),
-            'result_type': d['result_type'],
-            'batter_elo_before': round(d['batter_elo_before'], 4),
-            'batter_elo_after': round(d['batter_elo_after'], 4),
-            'pitcher_elo_before': round(d['pitcher_elo_before'], 4),
-            'pitcher_elo_after': round(d['pitcher_elo_after'], 4),
-            'on_base_delta': round(d['elo_delta'], 4),
-            'power_delta': 0.0,
-        })
-    return records
 
-
-def _prepare_ohlc_records(daily_ohlc) -> list[dict]:
-    """daily_ohlc 레코드 변환 (run_elo.py 로직 재사용)."""
-    records = []
-    for ohlc in daily_ohlc:
-        records.append({
-            'player_id': int(ohlc.player_id),
-            'game_date': ohlc.game_date.isoformat(),
-            'elo_type': ohlc.elo_type,
-            'open': round(ohlc.open_elo, 4),
-            'high': round(ohlc.high_elo, 4),
-            'low': round(ohlc.low_elo, 4),
-            'close': round(ohlc.close_elo, 4),
-            'games_played': ohlc.games_played,
-            'total_pa': ohlc.total_pa,
-            'role': ohlc.role,
-        })
-    return records
-
-
-def run_daily_pipeline(target_date: date = None, force: bool = False) -> dict:
+def run_daily_pipeline(target_date: date | None = None, force: bool = False) -> dict:
     """메인 파이프라인.
 
     Args:
@@ -495,12 +461,12 @@ def run_daily_pipeline(target_date: date = None, force: bool = False) -> dict:
 
     # 8b. elo_pa_detail
     logger.info("  Uploading elo_pa_detail...")
-    pa_detail_records = _prepare_pa_detail_records(batch.pa_details)
+    pa_detail_records = prepare_pa_detail_records(batch.pa_details)
     detail_uploaded = upload_table(client, 'elo_pa_detail', pa_detail_records)
 
     # 8c. daily_ohlc
     logger.info("  Uploading daily_ohlc...")
-    ohlc_records = _prepare_ohlc_records(batch.daily_ohlc)
+    ohlc_records = prepare_ohlc_records(batch.daily_ohlc)
     ohlc_uploaded = upload_table(client, 'daily_ohlc', ohlc_records,
                                  on_conflict='player_id,game_date,elo_type,role')
 

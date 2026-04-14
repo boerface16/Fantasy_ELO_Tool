@@ -158,3 +158,32 @@
 | Red flags | 0 | 0 |
 
 - Brier K miss (0.1715 vs 0.160 target) is pre-existing and non-blocking; flagged for V2.3 recalibration of `stage1_k`.
+
+---
+
+# Python Code Fixes (from tasks/python_fixes.md)
+
+## Critical
+- [x] Rewrite `tests/test_fangraphs_enricher.py` — remove dead pybaseball imports; mock `requests.get` for MLB API; update batter tests (returns empty DF now)
+
+## High
+- [x] `scripts/validate_etl.py:6` — replace hardcoded `/Users/mksong/` path with `argparse`
+- [x] `src/fantasy/weekly_projection.py:432` — init `weekly_appearances = 0` before `if rp_slots:` block (UnboundLocalError risk at line 475)
+- [x] Consolidate `_prepare_pa_detail_records`/`_prepare_ohlc_records` into `src/etl/upload_to_supabase.py` with optional ELO-extra-fields param; update callers in `run_elo.py` and `daily_pipeline.py`
+- [x] Note: `_detect_season_boundary` double-call (lines 437/473) already fixed — single call at line 465 confirmed
+
+## Medium
+- [x] `scripts/compute_matchup_constants.py` — wrap in `def main()` + `if __name__ == '__main__'`; use `get_supabase_client()` 
+- [x] `scripts/seed_speed_elo_fg.py` — use `get_supabase_client()` instead of manual client; import `ELO_MIN/MAX` from `multi_elo_types.py`
+- [x] Delete `src/etl/player_lookup.py` (dead module, MongoDB refs, zero imports)
+
+## Low
+- [x] Remove unused `import math` from `scripts/run_elo.py` and `scripts/bulk_load.py`
+- [x] Fix `k_factor: float = None` → `float | None` in `src/engine/elo_batch.py:55`
+- [x] Fix `target_date: date = None` → `date | None` in `src/pipeline/daily_pipeline.py:406`
+- [x] `scripts/run_weekly.py` — remove dead `get_batter_stats` import/call (returns empty DF)
+
+## Review
+- 112/112 tests passing (was failing on all 14 fangraphs tests pre-fix)
+- `prepare_pa_detail_records`/`prepare_ohlc_records` now canonical in `upload_to_supabase.py`; `run_elo.py` uses `elo_fields=True`, `daily_pipeline.py` uses default `elo_fields=False`
+- `_detect_season_boundary` double-call was already fixed prior to this session

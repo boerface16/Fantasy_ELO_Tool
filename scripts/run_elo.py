@@ -11,7 +11,6 @@ Usage:
 """
 
 import logging
-import math
 import os
 import sys
 
@@ -28,7 +27,10 @@ from src.engine.elo_config import INITIAL_ELO
 from src.engine.re24_baseline import RE24Baseline
 from src.engine.park_factor import ParkFactor
 from src.engine.talent_batch import TalentBatch
-from src.etl.upload_to_supabase import get_supabase_client, upload_table
+from src.etl.upload_to_supabase import (
+    get_supabase_client, upload_table,
+    prepare_pa_detail_records, prepare_ohlc_records,
+)
 
 
 def load_pa_from_supabase(client) -> pd.DataFrame:
@@ -60,46 +62,6 @@ def load_pa_from_supabase(client) -> pd.DataFrame:
     print(f"  Loaded {len(df):,} PAs")
     return df
 
-
-def prepare_pa_detail_records(pa_details: list[dict]) -> list[dict]:
-    """elo_pa_detail 레코드 변환."""
-    records = []
-    for d in pa_details:
-        records.append({
-            'pa_id': int(d['pa_id']),
-            'batter_id': int(d['batter_id']),
-            'pitcher_id': int(d['pitcher_id']),
-            'result_type': d['result_type'],
-            'batter_elo_before': round(d['batter_elo_before'], 4),
-            'batter_elo_after': round(d['batter_elo_after'], 4),
-            'pitcher_elo_before': round(d['pitcher_elo_before'], 4),
-            'pitcher_elo_after': round(d['pitcher_elo_after'], 4),
-            'on_base_delta': round(d['elo_delta'], 4),
-            'power_delta': 0.0,
-            'k_base': round(d.get('k_base', 0.0), 4),
-            'physics_mod': round(d.get('physics_mod', 1.0), 4),
-            'k_effective': round(d.get('k_effective', 0.0), 4),
-        })
-    return records
-
-
-def prepare_ohlc_records(daily_ohlc) -> list[dict]:
-    """daily_ohlc 레코드 변환."""
-    records = []
-    for ohlc in daily_ohlc:
-        records.append({
-            'player_id': int(ohlc.player_id),
-            'game_date': ohlc.game_date.isoformat(),
-            'elo_type': ohlc.elo_type,
-            'open': round(ohlc.open_elo, 4),
-            'high': round(ohlc.high_elo, 4),
-            'low': round(ohlc.low_elo, 4),
-            'close': round(ohlc.close_elo, 4),
-            'games_played': ohlc.games_played,
-            'total_pa': ohlc.total_pa,
-            'role': ohlc.role,
-        })
-    return records
 
 
 def print_summary(batch: EloBatch):
@@ -212,7 +174,7 @@ def main():
 
     # 5b. elo_pa_detail
     print("\n--- elo_pa_detail ---")
-    pa_detail_records = prepare_pa_detail_records(batch.pa_details)
+    pa_detail_records = prepare_pa_detail_records(batch.pa_details, elo_fields=True)
     n = upload_table(client, 'elo_pa_detail', pa_detail_records, batch_size=1000)
     print(f"  Uploaded: {n:,}")
 

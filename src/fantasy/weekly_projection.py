@@ -429,6 +429,7 @@ def project_week(
             ))
 
         # --- RP: project from Fangraphs rates across all team games ---
+        weekly_appearances = 0
         if rp_slots:
             fg = fg_by_name.get(name.lower(), {})
             season_g = float(fg.get("G") or 0) or 30.0

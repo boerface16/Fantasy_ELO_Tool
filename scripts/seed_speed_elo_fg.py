@@ -26,15 +26,14 @@ import sys
 import numpy as np
 import requests
 from dotenv import load_dotenv
-from supabase import create_client
+
+from src.engine.multi_elo_types import ELO_MIN, ELO_MAX
 
 load_dotenv()
 logger = logging.getLogger(__name__)
 
 ELO_PER_SD = 100.0
 ELO_BASE = 1500.0
-ELO_MIN = 500.0
-ELO_MAX = 3000.0
 MIN_ATTEMPTS = 3
 
 MLB_STATS_URL = (
@@ -133,11 +132,8 @@ def run_speed_seed(season: int, sb_client=None) -> dict:
     provided, one is created from env vars.
     """
     if sb_client is None:
-        supabase_url = os.environ.get('SUPABASE_URL')
-        supabase_key = os.environ.get('SUPABASE_KEY')
-        if not supabase_url or not supabase_key:
-            raise RuntimeError("SUPABASE_URL and SUPABASE_KEY must be set.")
-        sb_client = create_client(supabase_url, supabase_key)
+        from src.etl.upload_to_supabase import get_supabase_client
+        sb_client = get_supabase_client()
 
     logger.info(f"Fetching MLB Stats API SB/CS data for {season}...")
     players = fetch_mlb_sb_stats(season)

@@ -52,7 +52,7 @@ class DailyOhlc:
 class EloBatch:
     """V5.3 ELO 배치 프로세서."""
 
-    def __init__(self, k_factor: float = None, re24_baseline=None, park_factor=None,
+    def __init__(self, k_factor: float | None = None, re24_baseline=None, park_factor=None,
                  initial_states: dict[int, PlayerEloState] = None,
                  season_projections: dict[int, tuple[float | None, float | None]] = None):
         self.calc = EloCalculator(

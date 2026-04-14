@@ -1,14 +1,18 @@
 """실제 Statcast 2025 데이터로 ETL 결과 검증."""
 
+import argparse
+
 import pandas as pd
 from src.etl.statcast_to_pa import convert_statcast_to_pa
 
-STATCAST_PATH = '/Users/mksong/Documents/mlb-statcast-book/data/raw/statcast_2025.parquet'
-
 
 def main():
+    parser = argparse.ArgumentParser(description="Validate ETL against a Statcast parquet file.")
+    parser.add_argument("statcast_path", help="Path to raw Statcast parquet file")
+    args = parser.parse_args()
+
     print("Loading Statcast 2025...")
-    raw = pd.read_parquet(STATCAST_PATH)
+    raw = pd.read_parquet(args.statcast_path)
     print(f"  Raw rows: {len(raw):,}")
 
     print("\nConverting to PA...")

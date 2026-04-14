@@ -66,6 +66,54 @@ def upload_table(client, table_name: str, records: list[dict], batch_size: int =
     return uploaded
 
 
+def prepare_pa_detail_records(pa_details: list[dict], elo_fields: bool = False) -> list[dict]:
+    """Convert pa_details list to elo_pa_detail upsert records.
+
+    Args:
+        elo_fields: If True, include k_base/physics_mod/k_effective (run_elo.py full batch).
+                    If False, omit them (daily_pipeline incremental update).
+    """
+    records = []
+    for d in pa_details:
+        rec = {
+            'pa_id': int(d['pa_id']),
+            'batter_id': int(d['batter_id']),
+            'pitcher_id': int(d['pitcher_id']),
+            'result_type': d['result_type'],
+            'batter_elo_before': round(d['batter_elo_before'], 4),
+            'batter_elo_after': round(d['batter_elo_after'], 4),
+            'pitcher_elo_before': round(d['pitcher_elo_before'], 4),
+            'pitcher_elo_after': round(d['pitcher_elo_after'], 4),
+            'on_base_delta': round(d['elo_delta'], 4),
+            'power_delta': 0.0,
+        }
+        if elo_fields:
+            rec['k_base'] = round(d.get('k_base', 0.0), 4)
+            rec['physics_mod'] = round(d.get('physics_mod', 1.0), 4)
+            rec['k_effective'] = round(d.get('k_effective', 0.0), 4)
+        records.append(rec)
+    return records
+
+
+def prepare_ohlc_records(daily_ohlc) -> list[dict]:
+    """Convert daily_ohlc list to daily_ohlc upsert records."""
+    records = []
+    for ohlc in daily_ohlc:
+        records.append({
+            'player_id': int(ohlc.player_id),
+            'game_date': ohlc.game_date.isoformat(),
+            'elo_type': ohlc.elo_type,
+            'open': round(ohlc.open_elo, 4),
+            'high': round(ohlc.high_elo, 4),
+            'low': round(ohlc.low_elo, 4),
+            'close': round(ohlc.close_elo, 4),
+            'games_played': ohlc.games_played,
+            'total_pa': ohlc.total_pa,
+            'role': ohlc.role,
+        })
+    return records
+
+
 def upload_players(players_df: pd.DataFrame, batch_size: int = 500) -> int:
     client = get_supabase_client()
     records = prepare_player_records(players_df)

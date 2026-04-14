@@ -33,18 +33,13 @@ def main():
     print(f"WEEKLY CACHE REFRESH — {season} season")
     print(f"{'=' * 60}\n")
 
-    from src.fantasy.fangraphs_enricher import get_batter_stats, get_pitcher_stats
-
-    logger.info(f"Fetching {season} batting stats...")
-    batters = get_batter_stats(season)
-    logger.info(f"  {len(batters)} batters cached")
+    from src.fantasy.fangraphs_enricher import get_pitcher_stats
 
     logger.info(f"Fetching {season} pitching stats...")
     pitchers = get_pitcher_stats(season)
     logger.info(f"  {len(pitchers)} pitchers cached")
 
     print(f"\n{'=' * 60}")
-    print(f"  Batters: {len(batters)}")
     print(f"  Pitchers: {len(pitchers)}")
     print(f"{'=' * 60}\n")
 

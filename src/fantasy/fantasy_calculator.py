@@ -53,27 +53,32 @@ def estimate_batter_points(
             + probs.get("3B", 0) * 3
             + probs.get("HR", 0) * 4)
 
-    # BB
+    # BB and HBP (LR-3: both score +1 ESPN point and create steal opportunities)
     e_bb = probs.get("BB", 0)
+    e_hbp = probs.get("HBP", 0)
 
     # Strikeouts (penalty)
     e_so = probs.get("K", 0)
 
-    # R and RBI estimated from total bases
-    e_runs = e_tb * 0.40
-    e_rbi = e_tb * 0.45
-
     # SB: scale by batter speed ELO and opponent pitcher permissiveness
     speed_z = (speed_elo - SPEED_ELO_MEAN) / SPEED_ELO_STD
+
+    # R and RBI estimated from total bases (multipliers from config; speed adjusts run rate)
+    calib = scoring.get("calibration", {})
+    r_per_tb = calib.get("r_per_tb", 0.40)
+    rbi_per_tb = calib.get("rbi_per_tb", 0.45)
+    e_runs = e_tb * r_per_tb + speed_z * 0.015  # faster batters score more runs independent of TBs
+    e_rbi = e_tb * rbi_per_tb
     speed_factor = max(0.1, 1.0 + speed_z * 0.6)
     sb_rate = 0.02 * speed_factor * max(0.1, pitcher_sb_factor)
-    e_sb = (probs.get("1B", 0) + e_bb) * sb_rate
+    e_sb = (probs.get("1B", 0) + e_bb + e_hbp) * sb_rate  # HBP also creates steal opportunity
 
     pts_per_pa = (
         e_tb * rules.get("TB", 1)
         + e_runs * rules.get("R", 1)
         + e_rbi * rules.get("RBI", 1)
         + e_bb * rules.get("BB", 1)
+        + e_hbp * rules.get("HBP", 1)   # LR-3
         + e_sb * rules.get("SB", 1)
         + e_so * rules.get("SO", -1)
     )
@@ -106,13 +111,15 @@ def estimate_pitcher_points(
 
     k_per_bf = probs.get("K", 0.22)
     bb_per_bf = probs.get("BB", 0.09)
+    hbp_per_bf = probs.get("HBP", 0.0)   # LR-3
     hit_per_bf = (probs.get("1B", 0) + probs.get("2B", 0)
                   + probs.get("3B", 0) + probs.get("HR", 0))
 
     e_k = k_per_bf * bf
     e_bb = bb_per_bf * bf
+    e_hbp = hbp_per_bf * bf               # LR-3
     e_hits = hit_per_bf * bf
-    e_er = (e_hits + e_bb) * 0.30
+    e_er = (e_hits + e_bb + e_hbp) * 0.30  # LR-3: HBP contributes to ER
 
     pts = (
         innings * rules.get("IP", 3)
@@ -120,6 +127,7 @@ def estimate_pitcher_points(
         + e_hits * rules.get("H", -1)
         + e_er * rules.get("ER", -2)
         + e_bb * rules.get("BB", -1)
+        + e_hbp * rules.get("HBP", -1)    # LR-3
         + win_prob * rules.get("W", 2)
         + loss_prob * rules.get("L", -2)
     )
@@ -155,13 +163,15 @@ def estimate_reliever_points(
 
     k_per_bf = probs.get("K", 0.22)
     bb_per_bf = probs.get("BB", 0.09)
+    hbp_per_bf = probs.get("HBP", 0.0)   # LR-3
     hit_per_bf = (probs.get("1B", 0) + probs.get("2B", 0)
                   + probs.get("3B", 0) + probs.get("HR", 0))
 
     e_k = k_per_bf * bf
     e_bb = bb_per_bf * bf
+    e_hbp = hbp_per_bf * bf               # LR-3
     e_hits = hit_per_bf * bf
-    e_er = (e_hits + e_bb) * 0.30
+    e_er = (e_hits + e_bb + e_hbp) * 0.30  # LR-3: HBP contributes to ER
     e_sv = sv_per_app * appearances
     e_hld = hld_per_app * appearances
 
@@ -171,6 +181,7 @@ def estimate_reliever_points(
         + e_hits * rules.get("H", -1)
         + e_er * rules.get("ER", -2)
         + e_bb * rules.get("BB", -1)
+        + e_hbp * rules.get("HBP", -1)    # LR-3
         + e_sv * rules.get("SV", 5)
         + e_hld * rules.get("HD", 2)
     )

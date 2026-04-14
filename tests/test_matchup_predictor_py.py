@@ -21,7 +21,7 @@ from src.fantasy.matchup_predictor import (
 
 def test_elo_distribution_keys():
     expected = {
-        "BATTER_CONTACT", "BATTER_POWER", "BATTER_DISCIPLINE",
+        "BATTER_CONTACT", "BATTER_POWER", "BATTER_DISCIPLINE", "BATTER_SPEED",
         "PITCHER_STUFF", "PITCHER_BIP_SUPPRESSION", "PITCHER_COMMAND",
         "PITCHER_CLUTCH",
     }
@@ -135,11 +135,15 @@ class TestPredictPA:
         assert abs(total - 1.0) < 1e-6
 
     def test_avg_vs_avg_matches_league_rates(self, avg_batter, avg_pitcher):
-        """Average batter vs average pitcher should produce league-average rates."""
+        """Average batter vs average pitcher should produce league-average rates.
+
+        LR-3: BB is now split into BB + HBP; check combined free-base rate vs la["bb_rate"].
+        """
         pred = predict_plate_appearance(avg_batter, avg_pitcher)
         la = MLB_LEAGUE_AVERAGES
-        assert pred["probabilities"]["BB"] == pytest.approx(la["bb_rate"], abs=0.005)
-        assert pred["probabilities"]["K"] == pytest.approx(la["k_rate"], abs=0.005)
+        probs = pred["probabilities"]
+        assert probs["BB"] + probs.get("HBP", 0) == pytest.approx(la["bb_rate"], abs=0.005)
+        assert probs["K"] == pytest.approx(la["k_rate"], abs=0.005)
 
     def test_avg_vs_avg_woba_matches_league(self, avg_batter, avg_pitcher):
         pred = predict_plate_appearance(avg_batter, avg_pitcher)

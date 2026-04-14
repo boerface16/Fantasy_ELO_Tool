@@ -45,8 +45,15 @@ def sample_schedule():
 @pytest.fixture
 def mock_elo_lookup():
     lookup = MagicMock()
-    lookup.get_batter_elo.return_value = {"contact": 1520.0, "power": 1550.0, "discipline": 1750.0}
-    lookup.get_pitcher_elo.return_value = {"stuff": 1600.0, "bip_suppression": 1510.0, "command": 1700.0}
+    lookup.get_batter_elo.return_value = {
+        "contact": 1520.0, "power": 1550.0, "discipline": 1750.0,
+        "speed": 1500.0, "clutch": 1500.0,
+    }
+    lookup.get_pitcher_elo.return_value = {
+        "stuff": 1600.0, "bip_suppression": 1510.0, "command": 1700.0, "clutch": 1500.0,
+    }
+    lookup.get_team_elo.return_value = 1500.0
+    lookup.get_recent_form_adjustment.return_value = 1.0
     return lookup
 
 

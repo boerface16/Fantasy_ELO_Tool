@@ -1,182 +1,140 @@
-# config/multi_elo_config.yaml
-
-# =============================================================================
-# Multi-Dimensional ELO Configuration V2.0
-# =============================================================================
-
-version: "2.0"  # Matchup Engine V2: DIPS-based asymmetric weights
-
-# -----------------------------------------------------------------------------
-# Constants
-# -----------------------------------------------------------------------------
+version: '2.0'
 constants:
   default_elo: 1500.0
   elo_min: 500.0
   elo_max: 3000.0
   min_reliability: 0.3
-  default_expected_divisor: 400.0  # fallback divisor (legacy compatibility)
-
-# -----------------------------------------------------------------------------
-# Batter Dimensions (5)
-# expected_divisor = 2 x empirical std of season ELO distribution
-# -----------------------------------------------------------------------------
+  default_expected_divisor: 400.0
 batter_dimensions:
-  - name: contact
-    index: 0
-    k_factor: 12.0
-    scale: 5.0
-    reliability_threshold: 400
-    expected_divisor: 127.0  # 2 x 63.6 (empirical std)
-    description: "Strikeout avoidance + weak BIP credit"
-
-  - name: power
-    index: 1
-    k_factor: 14.4
-    scale: 10.0
-    reliability_threshold: 200
-    expected_divisor: 218.0  # 2 x 109.2 (empirical std)
-    description: "Extra-base power"
-
-  - name: discipline
-    index: 2
-    k_factor: 12.0
-    scale: 5.0
-    reliability_threshold: 400
-    expected_divisor: 143.0  # 2 x 71.5 (empirical std)
-    description: "Plate discipline (walks only)"
-
-  - name: speed
-    index: 3
-    k_factor: 36.0
-    scale: 4.0
-    reliability_threshold: 50
-    expected_divisor: 425.0  # 2 x 212.3 (empirical std)
-    description: "Baserunning (SB/CS based)"
-
-  - name: clutch
-    index: 4
-    k_factor: 18.0
-    scale: 6.0
-    reliability_threshold: 100
-    expected_divisor: 115.0  # 2 x 57.3 (empirical std)
-    description: "High-leverage situation performance"
-
-# -----------------------------------------------------------------------------
-# Pitcher Dimensions (4)
-# V2: dominance replaced by bip_suppression (DIPS-based)
-# -----------------------------------------------------------------------------
+- name: contact
+  index: 0
+  k_factor: 12.0
+  scale: 5.0
+  reliability_threshold: 400
+  expected_divisor: 127.0
+  description: Strikeout avoidance + weak BIP credit
+- name: power
+  index: 1
+  k_factor: 14.4
+  scale: 10.0
+  reliability_threshold: 200
+  expected_divisor: 218.0
+  description: Extra-base power
+- name: discipline
+  index: 2
+  k_factor: 12.0
+  scale: 5.0
+  reliability_threshold: 400
+  expected_divisor: 143.0
+  description: Plate discipline (walks only)
+- name: speed
+  index: 3
+  k_factor: 36.0
+  scale: 4.0
+  reliability_threshold: 50
+  expected_divisor: 425.0
+  description: Baserunning (SB/CS based)
+- name: clutch
+  index: 4
+  k_factor: 18.0
+  scale: 6.0
+  reliability_threshold: 100
+  expected_divisor: 115.0
+  description: High-leverage situation performance
 pitcher_dimensions:
-  - name: stuff
-    index: 0
-    k_factor: 12.0
-    scale: 5.0
-    reliability_threshold: 400
-    expected_divisor: 132.0  # 2 x 66.1 (empirical std)
-    maps_to_batter: contact
-    description: "Pure strikeout ability (FIP-based, K and HR only)"
-
-  - name: bip_suppression
-    index: 1
-    k_factor: 4.0   # low K-factor: suppresses BABIP noise
-    scale: 3.0       # low scale: slow ELO movement
-    reliability_threshold: 400
-    expected_divisor: 181.0  # 2 x 90.3 (empirical std)
-    maps_to_batter: contact
-    description: "BIP hit suppression (BABIP noise acknowledged, slow ELO)"
-
-  - name: command
-    index: 2
-    k_factor: 12.0
-    scale: 5.0
-    reliability_threshold: 400
-    expected_divisor: 148.0  # 2 x 74.1 (empirical std)
-    maps_to_batter: discipline
-    description: "Walk suppression / control"
-
-  - name: clutch
-    index: 3
-    k_factor: 18.0
-    expected_divisor: 123.0  # 2 x 61.7 (empirical std)
-    scale: 6.0
-    reliability_threshold: 100
-    maps_to_batter: clutch
-    description: "High-leverage situation performance"
-
-# -----------------------------------------------------------------------------
-# Event-Dimension Mapping (Batter) — V2 revisions
-# StrikeOut discipline penalty removed; BIP contact weight significantly reduced
-# -----------------------------------------------------------------------------
+- name: stuff
+  index: 0
+  k_factor: 12.0
+  scale: 5.0
+  reliability_threshold: 400
+  expected_divisor: 132.0
+  maps_to_batter: contact
+  description: Pure strikeout ability (FIP-based, K and HR only)
+- name: bip_suppression
+  index: 1
+  k_factor: 4.0
+  scale: 3.0
+  reliability_threshold: 400
+  expected_divisor: 181.0
+  maps_to_batter: contact
+  description: BIP hit suppression (BABIP noise acknowledged, slow ELO)
+- name: command
+  index: 2
+  k_factor: 12.0
+  scale: 5.0
+  reliability_threshold: 400
+  expected_divisor: 148.0
+  maps_to_batter: discipline
+  description: Walk suppression / control
+- name: clutch
+  index: 3
+  k_factor: 18.0
+  expected_divisor: 123.0
+  scale: 6.0
+  reliability_threshold: 100
+  maps_to_batter: clutch
+  description: High-leverage situation performance
 event_weights:
   Single:
-    contact: 0.3       # V1: 1.0 -> V2: 0.3 (weak BIP credit)
+    contact: 0.3
     power: 0.0
     discipline: 0.0
-    speed: 0.0         # V2.1: speed disabled on BIP
+    speed: 0.0
     clutch_base: 0.5
-
   Double:
-    contact: 0.3       # V1: 0.7 -> V2: 0.3
+    contact: 0.3
     power: 0.7
     discipline: 0.0
-    speed: 0.0         # V2.1: speed disabled on BIP
+    speed: 0.0
     clutch_base: 0.6
-
   Triple:
     contact: 0.3
     power: 0.3
     discipline: 0.0
-    speed: 0.0         # V2.1: speed disabled (was 0.8)
+    speed: 0.0
     clutch_base: 0.7
-
   HR:
-    contact: 0.2       # BIP occurred -> weak contact credit
+    contact: 0.2
     power: 1.0
     discipline: 0.0
     speed: 0.0
     clutch_base: 0.8
-
   BB:
     contact: 0.0
     power: 0.0
-    discipline: 1.0    # Discipline success
+    discipline: 1.0
     speed: 0.0
     clutch_base: 0.4
-
   HBP:
     contact: 0.0
     power: 0.0
     discipline: 0.8
     speed: 0.0
     clutch_base: 0.3
-
   IBB:
     contact: 0.0
     power: 0.0
     discipline: 0.6
     speed: 0.0
     clutch_base: 0.2
-
   StrikeOut:
-    contact: -1.0      # Contact = anti-strikeout core metric
+    contact: -1.0
     power: 0.0
-    discipline: -0.5   # V2.2: K penalty restored -- discipline rewards walk-not-strikeout
+    discipline: -0.5
     speed: 0.0
     clutch_base: -0.5
-
   OUT:
-    contact: -0.15     # V1: -0.5 -> V2: -0.15 (weak BIP penalty)
+    contact: -0.15
     power: -0.2
     discipline: 0.0
     speed: 0.0
     clutch_base: -0.3
-
   FC:
     contact: -0.1
     power: -0.2
     discipline: 0.0
     speed: 0.0
     clutch_base: -0.4
-
   GIDP:
     contact: -0.1
     power: -0.7
@@ -184,213 +142,167 @@ event_weights:
     speed: 0.0
     clutch_base: -0.8
     clutch_multiplier: 2.0
-
   SAC:
     contact: 0.2
     power: 0.0
     discipline: 0.0
     speed: 0.0
     clutch_base: 0.3
-
   E:
     contact: 0.1
     power: 0.0
     discipline: 0.0
     speed: 0.0
     clutch_base: 0.2
-
   POPUP:
     contact: -0.2
-    power: -0.8        # popup = worst power outcome (badly missed)
+    power: -0.8
     discipline: 0.0
     speed: 0.0
     clutch_base: -0.5
-
   GROUNDOUT:
     contact: -0.1
-    power: -0.4        # groundout = moderate power penalty
+    power: -0.4
     discipline: 0.0
     speed: 0.0
     clutch_base: -0.3
-
-# -----------------------------------------------------------------------------
-# Pitcher Event-Dimension Mapping (V2 new -- asymmetric weights)
-# DIPS principle: only K/BB/HR are pitcher-controlled; BIP reflected weakly
-# -----------------------------------------------------------------------------
 pitcher_event_weights:
   StrikeOut:
-    stuff: 1.0         # core: strikeout = stuff success
+    stuff: 1.0
     bip_suppression: 0.0
-    command: 0.3        # V2 fix: K = no walk = weak command credit
+    command: 0.3
     clutch_base: 0.5
-
   BB:
     stuff: 0.0
     bip_suppression: 0.0
-    command: -1.0      # core: walk = command failure
-    clutch_base: -0.7  # V2.2: raised from -0.4; RISP multiplier makes this -1.05+
-
+    command: -1.0
+    clutch_base: -0.7
   HBP:
     stuff: 0.0
     bip_suppression: 0.0
     command: -0.8
     clutch_base: -0.3
-
   IBB:
     stuff: 0.0
     bip_suppression: 0.0
     command: -0.3
     clutch_base: -0.2
-
   HR:
-    stuff: -0.8        # core: home run = bad pitch = stuff failure
+    stuff: -0.8
     bip_suppression: -0.5
     command: -0.3
     clutch_base: -0.8
-
   Single:
-    stuff: 0.0         # DIPS: BIP outcome not reflected in stuff
+    stuff: 0.0
     bip_suppression: -0.6
     command: 0.0
     clutch_base: -0.5
-
   Double:
     stuff: 0.0
     bip_suppression: -0.8
     command: 0.0
     clutch_base: -0.6
-
   Triple:
     stuff: 0.0
     bip_suppression: -0.9
     command: 0.0
     clutch_base: -0.7
-
   OUT:
     stuff: 0.0
     bip_suppression: 0.4
-    command: 0.15       # V2 fix: out = weak command credit
+    command: 0.15
     clutch_base: 0.3
-
   GIDP:
     stuff: 0.0
     bip_suppression: 0.5
     command: 0.15
     clutch_base: 0.8
     clutch_multiplier: 2.0
-
   FC:
     stuff: 0.0
     bip_suppression: 0.3
     command: 0.15
     clutch_base: 0.4
-
   SAC:
     stuff: 0.0
     bip_suppression: 0.2
     command: 0.0
     clutch_base: -0.3
-
   E:
     stuff: 0.0
     bip_suppression: -0.1
     command: 0.0
     clutch_base: -0.2
-
   POPUP:
     stuff: 0.0
-    bip_suppression: 0.6   # popup = strong suppression success
+    bip_suppression: 0.6
     command: 0.15
     clutch_base: 0.4
-
   GROUNDOUT:
     stuff: 0.0
-    bip_suppression: 0.4   # groundout = moderate suppression success
+    bip_suppression: 0.4
     command: 0.15
     clutch_base: 0.3
-
-# -----------------------------------------------------------------------------
-# Baserunning Events (Speed only)
-# -----------------------------------------------------------------------------
 baserunning_weights:
   SB:
-    speed: 1.0         # re-enabled V2.2
+    speed: 1.0
     clutch_base: 0.3
-
   CS:
-    speed: -3.0        # re-enabled V2.2 (3x penalty vs SB reward)
+    speed: -3.0
     clutch_base: -0.7
-
-# -----------------------------------------------------------------------------
-# Composite Weights — V2: dominance replaced by bip_suppression
-# -----------------------------------------------------------------------------
 composite_weights:
   batter:
     default:
-      contact: 0.23     # V2.2: speed re-enabled, redistribute
+      contact: 0.23
       power: 0.23
       discipline: 0.22
-      speed: 0.10       # V2.2: re-enabled
+      speed: 0.1
       clutch: 0.22
-
   pitcher:
     starter:
       stuff: 0.25
-      bip_suppression: 0.20
-      command: 0.40
+      bip_suppression: 0.2
+      command: 0.4
       clutch: 0.15
-
     reliever:
       stuff: 0.35
-      bip_suppression: 0.20
-      command: 0.30
+      bip_suppression: 0.2
+      command: 0.3
       clutch: 0.15
-
     closer:
       stuff: 0.35
       bip_suppression: 0.25
       command: 0.25
       clutch: 0.15
-
-# -----------------------------------------------------------------------------
-# Clutch Conditions
-# -----------------------------------------------------------------------------
 clutch_config:
   leverage_threshold: 2.0
   max_multiplier: 2.0
-
-# -----------------------------------------------------------------------------
-# Season Reset (FiveThirtyEight formula)
-# new_elo = projection_weight * projected_elo + prior_weight * regressed_final_elo
-# Projections: consensus of ZiPS, ZiPS DC, STEAMER from FanGraphs
-# -----------------------------------------------------------------------------
 season_reset:
   projection_weight: 0.67
   prior_season_weight: 0.33
-  prior_season_regression: 0.333  # regress 1/3 toward 1500
-
-# -----------------------------------------------------------------------------
-# Prediction Engine Tuning
-# -----------------------------------------------------------------------------
+  prior_season_regression: 0.333
 prediction_engine:
-  # QW-1: pitcher clutch z-score → win_prob shift per std deviation
   clutch_win_weight: 0.02
-
-  # QW-1 / QW-3: ELO distribution constants for clutch dimensions
   clutch_distribution:
     batter_mean: 1500.0
-    batter_std: 57.3    # expected_divisor/2 from batter clutch dimension
+    batter_std: 57.3
     pitcher_mean: 1500.0
-    pitcher_std: 61.7   # expected_divisor/2 from pitcher clutch dimension
-
-  # QW-3: career/season blend weights (mirrors season_reset)
+    pitcher_std: 61.7
   career_blend_season_weight: 0.67
   career_blend_career_weight: 0.33
-
-  # QW-5: canonical average batter ELO (single source of truth for pitcher projections)
   avg_batter_elo:
     contact: 1504.5
     power: 1468.6
     discipline: 1700.3
     speed: 1500.0
     clutch: 1500.0
+  zscore_divisors:
+    stage1_bb: 3.1266
+    stage1_k: 8.4243
+    stage2: 20.0
+    stage3: 16.4052
+    stage1_hbp: 7.0
+  xbh_split_scales:
+    power_hr_scale: 0.03
+    stuff_hr_scale: 0.03
+    speed_3b_scale: 0.008

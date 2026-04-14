@@ -7,6 +7,7 @@ batter:
   R: 1        # Runs scored
   RBI: 1      # Runs batted in
   BB: 1       # Walks
+  HBP: 1      # Hit by pitch
   SB: 1       # Stolen bases
   SO: -1      # Strikeouts
 
@@ -19,4 +20,10 @@ pitcher:
   H: -1       # Hits allowed
   ER: -2      # Earned runs
   BB: -1      # Walks allowed
+  HBP: -1     # Hit batter
   L: -2       # Losses
+
+# Calibration parameters for batter R/RBI estimation
+calibration:
+  r_per_tb: 0.40    # Expected runs per total base
+  rbi_per_tb: 0.45  # Expected RBI per total base

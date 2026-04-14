@@ -13,6 +13,8 @@ venv/
 
 # Cache
 .cache/
+.claude/
+llama.cpp/
 
 # Logs
 logs/

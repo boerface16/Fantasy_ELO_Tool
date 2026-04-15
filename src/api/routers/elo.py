@@ -390,6 +390,83 @@ async def _daily_fantasy(date: str, role: str, hot: bool) -> list:
     ]
 
 
+@router.get("/players/{player_id}/stat-line")
+async def player_stat_line(
+    player_id: int,
+    role: str = Query("batter"),
+    season: int = Query(2026),
+):
+    """Return season stat line for display in the player profile header."""
+    sb = get_supabase()
+
+    # Counting stats from player_season_stats
+    ss_resp = (
+        sb.table("player_season_stats")
+        .select("pa,hits,home_runs,bb,hbp,so,bf,k,er,bb_allowed")
+        .eq("player_id", player_id)
+        .eq("season_year", season)
+        .limit(1)
+        .execute()
+    )
+    ss = ss_resp.data[0] if ss_resp.data else None
+
+    # Advanced stats from player_fangraphs_stats
+    fg_resp = (
+        sb.table("player_fangraphs_stats")
+        .select("xwoba,wrc_plus,war,xfip_minus,siera")
+        .eq("player_id", player_id)
+        .eq("season_year", season)
+        .limit(1)
+        .execute()
+    )
+    fg = fg_resp.data[0] if fg_resp.data else {}
+
+    if not ss:
+        return None
+
+    is_pitcher = role == "pitcher"
+    pa = ss.get("pa") or 0
+    bf = ss.get("bf") or 0
+
+    # Return null if player hasn't played yet
+    if (is_pitcher and bf == 0) or (not is_pitcher and pa == 0):
+        return None
+
+    def pct(num, denom):
+        return round(num / denom, 4) if denom else None
+
+    if is_pitcher:
+        k = ss.get("k") or 0
+        bb = ss.get("bb_allowed") or 0
+        return {
+            "bf": bf,
+            "k": k,
+            "er": ss.get("er") or 0,
+            "bb": bb,
+            "k_pct": pct(k, bf),
+            "bb_pct": pct(bb, bf),
+            "k_bb_pct": pct(k - bb, bf),
+            "xwoba": fg.get("xwoba"),
+            "xfip_minus": fg.get("xfip_minus"),
+            "siera": fg.get("siera"),
+        }
+    else:
+        k = ss.get("so") or 0
+        bb = (ss.get("bb") or 0) + (ss.get("hbp") or 0)
+        return {
+            "pa": pa,
+            "k": k,
+            "h": ss.get("hits") or 0,
+            "hr": ss.get("home_runs") or 0,
+            "bb": ss.get("bb") or 0,
+            "k_pct": pct(k, pa),
+            "bb_pct": pct(ss.get("bb") or 0, pa),
+            "xwoba": fg.get("xwoba"),
+            "wrc_plus": fg.get("wrc_plus"),
+            "war": fg.get("war"),
+        }
+
+
 @router.get("/search")
 async def search_players(q: str = Query("", min_length=2)):
     sb = get_supabase()

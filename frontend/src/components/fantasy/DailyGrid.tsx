@@ -1,4 +1,5 @@
 import type { BatterProjection } from '../../types/fantasy';
+import TeamBadge from '../common/TeamBadge';
 
 interface Props {
   batters: BatterProjection[];
@@ -39,7 +40,7 @@ export default function DailyGrid({ batters }: Props) {
               <tr key={idx} className="border-b border-border-line hover:bg-bg-elevated/60">
                 <td className="py-2 px-2 font-mono text-text-secondary text-xs">{b.slot}</td>
                 <td className="py-2 px-2 font-medium">{b.name}</td>
-                <td className="py-2 px-2 text-text-secondary font-mono">{b.team}</td>
+                <td className="py-2 px-2"><TeamBadge code={b.team} /></td>
                 <td className="py-2 px-2 text-right font-mono text-xs text-text-secondary">{Math.round(b.compositeElo)}</td>
                 <td className="py-2 px-2 text-center">
                   {m ? (

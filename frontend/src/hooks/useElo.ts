@@ -114,3 +114,12 @@ export function useFantasyLeaderboard(role: string, season: number, page: number
     staleTime: 60_000,
   });
 }
+
+export function usePlayerStatLine(playerId: string, role: string, season: number) {
+  return useQuery({
+    queryKey: ['playerStatLine', playerId, role, season],
+    queryFn: () => eloApi.getPlayerStatLine(playerId, role, season),
+    enabled: !!playerId,
+    staleTime: 300_000,
+  });
+}

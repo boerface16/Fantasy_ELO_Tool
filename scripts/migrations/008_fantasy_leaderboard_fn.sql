@@ -2,9 +2,16 @@
 -- Called via supabase.rpc() from the FastAPI backend
 -- Run in Supabase SQL Editor or: psql $DATABASE_URL -f scripts/migrations/008_fantasy_leaderboard_fn.sql
 --
--- v2: Fixed SB/CS attribution — stolen bases credited to runner_id (actual stealer),
---     not batter_id (plate batter at time of steal). SB/CS rows excluded from
---     main batting aggregate so they don't count as plate appearances.
+-- v3: Rewritten to use player_season_stats (sourced from MLB Stats API) for exact
+--     ESPN H2H Points scoring. Previous versions estimated R/RBI from TB and were
+--     missing W/SV/HLD/L for pitchers entirely.
+--
+-- Batter formula (exact ESPN):
+--   TB(+1) + R(+1) + RBI(+1) + BB(+1) + HBP(+1) + SB(+1) + SO(-1)
+--
+-- Pitcher formula (exact ESPN):
+--   IP*3(+3/IP) + K(+1) + H(-1) + ER(-2) + BB(-1) + HBP(-1)
+--   + W(+2) + L(-2) + SV(+5) + HLD(+2)
 
 CREATE OR REPLACE FUNCTION fantasy_batter_leaderboard(
   p_season INT,
@@ -20,51 +27,30 @@ RETURNS TABLE(
   total_pa   BIGINT
 )
 LANGUAGE SQL STABLE AS $$
-  WITH sb_credits AS (
-    -- Credit stolen bases to the actual runner (runner_id), not the plate batter
-    SELECT
-      runner_id                    AS player_id,
-      COUNT(*) * 1.0               AS sb_pts
-    FROM plate_appearances
-    WHERE season_year = p_season
-      AND result_type = 'SB'
-      AND runner_id IS NOT NULL
-    GROUP BY runner_id
-  ),
-  batter_agg AS (
-    -- Regular batting stats; exclude SB/CS rows (they are baserunning events, not at-bats)
-    SELECT
-      pa.batter_id                 AS player_id,
-      (
-        -- TB * 1.85  (TB=1 + R_est=0.40 + RBI_est=0.45)
-        (  COUNT(*) FILTER (WHERE pa.result_type = 'Single')
-         + COUNT(*) FILTER (WHERE pa.result_type = 'Double')  * 2
-         + COUNT(*) FILTER (WHERE pa.result_type = 'Triple')  * 3
-         + COUNT(*) FILTER (WHERE pa.result_type = 'HR')      * 4
-        ) * 1.85
-        + COUNT(*) FILTER (WHERE pa.result_type IN ('BB','IBB','HBP')) * 1.0
-        - COUNT(*) FILTER (WHERE pa.result_type = 'StrikeOut')         * 1.0
-      )                            AS batting_pts,
-      COUNT(*)                     AS total_pa
-    FROM plate_appearances pa
-    WHERE pa.season_year = p_season
-      AND pa.result_type NOT IN ('SB', 'CS')
-    GROUP BY pa.batter_id
-  )
   SELECT
-    ba.player_id,
+    s.player_id,
     pl.full_name,
     pl.team,
     pl.position,
-    ba.batting_pts + COALESCE(sb.sb_pts, 0.0)  AS total_pts,
-    ba.total_pa
-  FROM batter_agg ba
-  JOIN players pl ON pl.player_id = ba.player_id
-  LEFT JOIN sb_credits sb ON sb.player_id = ba.player_id
+    (
+        s.total_bases * 1.0   -- TB
+      + s.runs        * 1.0   -- R
+      + s.rbi         * 1.0   -- RBI
+      + s.bb          * 1.0   -- BB
+      + s.hbp         * 1.0   -- HBP
+      + s.sb          * 1.0   -- SB
+      - s.so          * 1.0   -- SO (penalty)
+    )                          AS total_pts,
+    s.pa::BIGINT               AS total_pa
+  FROM player_season_stats s
+  JOIN players pl ON pl.player_id = s.player_id
+  WHERE s.season_year = p_season
+    AND s.pa > 0
   ORDER BY total_pts DESC
   LIMIT  p_limit
   OFFSET p_offset
 $$;
+
 
 CREATE OR REPLACE FUNCTION fantasy_pitcher_leaderboard(
   p_season INT,
@@ -81,30 +67,28 @@ RETURNS TABLE(
 )
 LANGUAGE SQL STABLE AS $$
   SELECT
-    pa.pitcher_id                       AS player_id,
+    s.player_id,
     pl.full_name,
     pl.team,
     pl.position,
     (
-      -- IP*3 component: outs (including K) * 1
-      COUNT(*) FILTER (WHERE pa.result_type IN ('OUT','POPUP','GROUNDOUT','StrikeOut')) * 1.0
-      -- K bonus (+1 on top of the out)
-      + COUNT(*) FILTER (WHERE pa.result_type = 'StrikeOut') * 1.0
-      -- H allowed (-1 each)
-      - COUNT(*) FILTER (WHERE pa.result_type IN ('Single','Double','Triple','HR')) * 1.0
-      -- ER estimate: (H + BB) * 0.30 * -2  →  * -0.60
-      - ( COUNT(*) FILTER (WHERE pa.result_type IN ('Single','Double','Triple','HR'))
-        + COUNT(*) FILTER (WHERE pa.result_type IN ('BB','IBB','HBP'))
-        ) * 0.6
-      -- BB penalty (-1 each)
-      - COUNT(*) FILTER (WHERE pa.result_type IN ('BB','IBB','HBP')) * 1.0
-    )                                   AS total_pts,
-    COUNT(*)                            AS total_bf
-  FROM plate_appearances pa
-  JOIN players pl ON pl.player_id = pa.pitcher_id
-  WHERE pa.season_year = p_season
-    AND pa.result_type NOT IN ('SB', 'CS')
-  GROUP BY pa.pitcher_id, pl.full_name, pl.team, pl.position
+        s.outs_recorded * 1.0   -- IP*3: each out = 1 pt (since IP*3 pts = outs pts)
+      + s.k             * 1.0   -- K  (+1)
+      - s.h_allowed     * 1.0   -- H  (-1)
+      - s.er            * 2.0   -- ER (-2)
+      - s.bb_allowed    * 1.0   -- BB (-1)
+      - s.hbp_allowed   * 1.0   -- HBP (-1)
+      + s.wins          * 2.0   -- W  (+2)
+      - s.losses        * 2.0   -- L  (-2)
+      + s.saves         * 5.0   -- SV (+5)
+      + s.holds         * 2.0   -- HLD (+2)
+    )                            AS total_pts,
+    -- Use outs_recorded as a proxy for batters faced (no exact BF in stats table)
+    s.outs_recorded::BIGINT      AS total_bf
+  FROM player_season_stats s
+  JOIN players pl ON pl.player_id = s.player_id
+  WHERE s.season_year = p_season
+    AND s.outs_recorded > 0
   ORDER BY total_pts DESC
   LIMIT  p_limit
   OFFSET p_offset

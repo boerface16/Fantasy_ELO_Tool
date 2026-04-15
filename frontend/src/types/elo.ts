@@ -89,6 +89,28 @@ export interface FantasyLeaderboardPlayer {
   total_pa: number;
 }
 
+export interface PlayerStatLine {
+  // batters
+  pa?: number;
+  k?: number;
+  h?: number;
+  hr?: number;
+  bb?: number;
+  // pitchers
+  bf?: number;
+  er?: number;
+  k_bb_pct?: number;
+  // shared
+  k_pct?: number;
+  bb_pct?: number;
+  xwoba?: number;
+  // fangraphs (may be null if rate-limited)
+  wrc_plus?: number;
+  war?: number;
+  xfip_minus?: number;
+  siera?: number;
+}
+
 export type EloTier = 'elite' | 'high' | 'above' | 'average' | 'below' | 'low' | 'cold';
 
 export function getEloTier(elo: number): EloTier {

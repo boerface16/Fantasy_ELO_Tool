@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Search, X } from 'lucide-react';
 import { usePlayerSearch } from '../../hooks/useElo';
 import type { MatchupRole } from '../../types/matchup';
+import TeamBadge from '../common/TeamBadge';
 
 interface PlayerSelectorProps {
   role: MatchupRole;
@@ -90,7 +91,7 @@ export default function PlayerSelector({ role, selectedName, onSelect }: PlayerS
               >
                 <span className="font-medium">{player.full_name}</span>
                 <span className="text-text-secondary">|</span>
-                <span className="text-sm text-text-secondary">{player.team}</span>
+                <TeamBadge code={player.team} />
                 {player.is_two_way && (
                   <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400">
                     TWP

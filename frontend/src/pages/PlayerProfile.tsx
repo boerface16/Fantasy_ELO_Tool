@@ -4,11 +4,12 @@ import { ArrowLeft, TrendingUp, TrendingDown } from 'lucide-react';
 import EloCandlestickChart from '../components/player/EloCandlestickChart';
 import { getEloTier, getEloTierColor } from '../types/elo';
 import { getTeamBorderColor } from '../utils/teamColors';
-import { usePlayerElo, usePlayerOhlc, usePlayerStats, usePlayerGames, useSeasonMeta } from '../hooks/useElo';
+import { usePlayerElo, usePlayerOhlc, usePlayerStats, usePlayerGames, useSeasonMeta, usePlayerStatLine } from '../hooks/useElo';
 import { usePlayerTalentOhlc } from '../hooks/useTalent';
 import { BATTER_TALENTS, PITCHER_TALENTS } from '../types/talent';
 import TeamLogo from '../components/common/TeamLogo';
 import TalentCardSection from '../components/player/TalentCardSection';
+import StatLine from '../components/player/StatLine';
 import type { PlayerGameEntry } from '../api/elo';
 
 type RoleTab = 'BATTING' | 'PITCHING';
@@ -230,6 +231,8 @@ export default function PlayerProfile() {
   const [activeRole, setActiveRole] = useState<RoleTab>('BATTING');
 
   const { data: playerElo, isLoading: eloLoading } = usePlayerElo(playerId ?? '');
+  const { data: seasonMeta } = useSeasonMeta();
+  const seasonYear = seasonMeta?.year ?? new Date().getFullYear();
 
   if (eloLoading) {
     return (
@@ -289,6 +292,19 @@ export default function PlayerProfile() {
   // For delta, we use the role-filtered OHLC (loaded in RoleSection), so show 0 here
   const currentRole = isTwoWay ? activeRole : primaryRole;
 
+  const statLineRole = currentRole === 'PITCHING' ? 'pitcher' : 'batter';
+  const { data: statLine } = usePlayerStatLine(playerId ?? '', statLineRole, seasonYear);
+  // For two-way players also prefetch the other role so the tab switch is instant
+  const altRole = currentRole === 'PITCHING' ? 'batter' : 'pitcher';
+  const { data: statLineAlt } = usePlayerStatLine(
+    isTwoWay ? (playerId ?? '') : '',
+    altRole,
+    seasonYear,
+  );
+  const displayStatLine = isTwoWay
+    ? (activeRole === 'PITCHING' ? statLineAlt : statLine)
+    : statLine;
+
   return (
     <div className="space-y-6">
       {/* Back Button */}
@@ -309,7 +325,7 @@ export default function PlayerProfile() {
           </div>
 
           {/* Player Info */}
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold text-text-primary">{player.full_name}</h1>
             <p className="text-text-secondary">
               {player.team} | {positionLabel}
@@ -319,6 +335,9 @@ export default function PlayerProfile() {
                 </span>
               )}
             </p>
+            {displayStatLine && (
+              <StatLine data={displayStatLine} role={currentRole} />
+            )}
           </div>
 
           {/* ELO Stats */}

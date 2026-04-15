@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import type { TalentLeaderboardPlayer } from '../../types/talent';
 import { getEloTier, getEloTierColor } from '../../types/elo';
-import TeamLogo from '../common/TeamLogo';
+import TeamBadge from '../common/TeamBadge';
 
 interface TalentLeaderboardTableProps {
   players: TalentLeaderboardPlayer[];
@@ -85,12 +85,7 @@ function TalentLeaderboardRow({
       <td className="px-4 py-3 text-sm font-semibold text-text-primary">
         {player.full_name}
       </td>
-      <td className="px-4 py-3 text-sm text-text-secondary">
-        <div className="flex items-center gap-1.5">
-          <TeamLogo size={20} />
-          {player.team}
-        </div>
-      </td>
+      <td className="px-4 py-3 text-sm"><TeamBadge code={player.team} /></td>
       <td className={`px-4 py-3 text-sm font-bold text-right ${tierColor}`}>
         {Math.round(player.season_elo)}
       </td>

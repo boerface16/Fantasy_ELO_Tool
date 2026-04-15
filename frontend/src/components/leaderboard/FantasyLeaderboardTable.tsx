@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import type { FantasyLeaderboardPlayer } from '../../types/elo';
+import TeamBadge from '../common/TeamBadge';
 
 interface FantasyLeaderboardTableProps {
   players: FantasyLeaderboardPlayer[];
@@ -77,7 +78,7 @@ function FantasyLeaderboardRow({
     >
       <td className="px-4 py-3 text-sm font-bold text-text-secondary">{rank}</td>
       <td className="px-4 py-3 text-sm font-semibold text-text-primary">{player.full_name}</td>
-      <td className="px-4 py-3 text-sm text-text-secondary font-mono">{player.team}</td>
+      <td className="px-4 py-3 text-sm"><TeamBadge code={player.team} /></td>
       <td className={`px-4 py-3 text-sm font-bold text-right ${ptsColor}`}>
         {player.total_pts > 0 ? '+' : ''}{player.total_pts.toFixed(1)}
       </td>

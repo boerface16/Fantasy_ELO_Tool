@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { usePlayerSearch } from '../../hooks/useElo';
+import TeamBadge from './TeamBadge';
 
 export default function PlayerSearch() {
   const [query, setQuery] = useState('');
@@ -68,7 +69,7 @@ export default function PlayerSearch() {
                   </span>
                 )}
                 <span className="text-text-tertiary">|</span>
-                <span className="text-sm text-text-secondary">{player.team}</span>
+                <TeamBadge code={player.team} />
               </button>
             ))
           )}

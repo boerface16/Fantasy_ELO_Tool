@@ -10,7 +10,9 @@ Steps:
     3. Refresh schedule cache (fetch this week's games)
     4. Refresh Fangraphs cache (batting + pitching stats)
     5. Seed Speed ELO (MLB Stats API SB/CS totals)
-    6. Print summary
+    6. Refresh player season stats (for exact ESPN fantasy point leaderboard)
+    7. Refresh advanced stats (xWOBA, WRC+, WAR, xFIP-, SIERA for stat line)
+    8. Print summary
 """
 
 import argparse
@@ -45,7 +47,7 @@ def main():
     print(f"{'=' * 60}\n")
 
     # Step 1: Player ELO + Talent
-    logger.info("Step 1/5: Player ELO + Talent update...")
+    logger.info("Step 1/7: Player ELO + Talent update...")
     try:
         from src.pipeline.daily_pipeline import run_daily_pipeline
         result = run_daily_pipeline(target_date=target)
@@ -58,7 +60,7 @@ def main():
         logger.error(f"  Failed: {e}")
 
     # Step 2: Team ELO
-    logger.info("Step 2/5: Team ELO update...")
+    logger.info("Step 2/7: Team ELO update...")
     try:
         from scripts.backfill_team_elo import run_backfill
         run_backfill(target_date=target.isoformat())
@@ -69,7 +71,7 @@ def main():
         logger.error(f"  Failed: {e}")
 
     # Step 3: Refresh pitcher stats cache (MLB Stats API)
-    logger.info("Step 3/5: Pitcher stats cache refresh...")
+    logger.info("Step 3/7: Pitcher stats cache refresh...")
     try:
         from src.fantasy.fangraphs_enricher import get_pitcher_stats
         pitchers_df = get_pitcher_stats(season)
@@ -80,7 +82,7 @@ def main():
         logger.error(f"  Failed: {e}")
 
     # Step 4: Refresh schedule cache
-    logger.info("Step 4/5: Schedule fetch...")
+    logger.info("Step 4/7: Schedule fetch...")
     try:
         from src.fantasy.schedule_fetcher import fetch_week_schedule
         games = fetch_week_schedule(date.today())
@@ -91,7 +93,7 @@ def main():
         logger.error(f"  Failed: {e}")
 
     # Step 5: Speed ELO seed
-    logger.info("Step 5/5: Speed ELO seed (MLB Stats API)...")
+    logger.info("Step 5/7: Speed ELO seed (MLB Stats API)...")
     try:
         from scripts.seed_speed_elo_fg import run_speed_seed
         result = run_speed_seed(season)
@@ -99,6 +101,34 @@ def main():
         logger.info(f"  Speed ELO updated for {result['players_updated']} players")
     except Exception as e:
         results["speed_elo"] = {"status": "error", "error": str(e)}
+        logger.error(f"  Failed: {e}")
+
+    # Step 6: Refresh player season stats (leaderboard accuracy)
+    logger.info("Step 6/7: Player season stats refresh (MLB Stats API)...")
+    try:
+        from src.etl.fetch_player_stats import build_upsert_rows, upsert_rows
+        from src.api.deps import get_supabase
+        rows = build_upsert_rows(season)
+        sb = get_supabase()
+        count = upsert_rows(sb, rows)
+        results["player_season_stats"] = {"status": "success", "rows": count}
+        logger.info(f"  Upserted {count} player season stat rows")
+    except Exception as e:
+        results["player_season_stats"] = {"status": "error", "error": str(e)}
+        logger.error(f"  Failed: {e}")
+
+    # Step 7: Refresh advanced stats (xWOBA, WRC+, WAR, xFIP-, SIERA)
+    logger.info("Step 7/7: Advanced stats refresh (Statcast + Fangraphs)...")
+    try:
+        from src.etl.fetch_fangraphs_stats import build_rows, upsert_rows as upsert_fg_rows
+        from src.api.deps import get_supabase as _get_sb
+        adv_rows = build_rows(season)
+        sb2 = _get_sb()
+        adv_count = upsert_fg_rows(sb2, adv_rows)
+        results["advanced_stats"] = {"status": "success", "rows": adv_count}
+        logger.info(f"  Upserted {adv_count} advanced stat rows")
+    except Exception as e:
+        results["advanced_stats"] = {"status": "error", "error": str(e)}
         logger.error(f"  Failed: {e}")
 
     # Summary

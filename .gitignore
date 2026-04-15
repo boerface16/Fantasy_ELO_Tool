@@ -8,6 +8,9 @@ build/
 venv/
 .venv/
 
+#workflows
+.github/workflows/keep_alive.yml
+
 # Environment
 .env
 
@@ -41,3 +44,6 @@ Thumbs.db
 
 # Data (large files)
 *.parquet
+
+# Scripts
+scripts/ESPN_API.py

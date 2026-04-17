@@ -78,12 +78,11 @@ def estimate_batter_points(
         + e_runs * rules.get("R", 1)
         + e_rbi * rules.get("RBI", 1)
         + e_bb * rules.get("BB", 1)
-        + e_hbp * rules.get("HBP", 1)   # LR-3
         + e_sb * rules.get("SB", 1)
         + e_so * rules.get("SO", -1)
     )
 
-    return float(pts_per_pa * pas)
+    return float(round(pts_per_pa * pas))
 
 
 def estimate_pitcher_points(
@@ -111,28 +110,31 @@ def estimate_pitcher_points(
 
     k_per_bf = probs.get("K", 0.22)
     bb_per_bf = probs.get("BB", 0.09)
-    hbp_per_bf = probs.get("HBP", 0.0)   # LR-3
+    hb_per_bf = probs.get("HBP", 0.0)
     hit_per_bf = (probs.get("1B", 0) + probs.get("2B", 0)
                   + probs.get("3B", 0) + probs.get("HR", 0))
+    hr_per_bf = probs.get("HR", 0)
 
     e_k = k_per_bf * bf
     e_bb = bb_per_bf * bf
-    e_hbp = hbp_per_bf * bf               # LR-3
+    e_hb = hb_per_bf * bf
     e_hits = hit_per_bf * bf
-    e_er = (e_hits + e_bb + e_hbp) * 0.30  # LR-3: HBP contributes to ER
+    e_hr = hr_per_bf * bf
+    e_er = (e_hits + e_bb + e_hb) * 0.30
 
     pts = (
         innings * rules.get("IP", 3)
         + e_k * rules.get("K", 1)
         + e_hits * rules.get("H", -1)
-        + e_er * rules.get("ER", -2)
+        + e_hr * rules.get("HR", -1)
+        + e_er * rules.get("ER", -1)
         + e_bb * rules.get("BB", -1)
-        + e_hbp * rules.get("HBP", -1)    # LR-3
-        + win_prob * rules.get("W", 2)
-        + loss_prob * rules.get("L", -2)
+        + e_hb * rules.get("HB", 1)
+        + win_prob * rules.get("W", 5)
+        + loss_prob * rules.get("L", -5)
     )
 
-    return float(pts)
+    return float(round(pts))
 
 
 def estimate_reliever_points(
@@ -163,27 +165,34 @@ def estimate_reliever_points(
 
     k_per_bf = probs.get("K", 0.22)
     bb_per_bf = probs.get("BB", 0.09)
-    hbp_per_bf = probs.get("HBP", 0.0)   # LR-3
+    hb_per_bf = probs.get("HBP", 0.0)
     hit_per_bf = (probs.get("1B", 0) + probs.get("2B", 0)
                   + probs.get("3B", 0) + probs.get("HR", 0))
+    hr_per_bf = probs.get("HR", 0)
 
     e_k = k_per_bf * bf
     e_bb = bb_per_bf * bf
-    e_hbp = hbp_per_bf * bf               # LR-3
+    e_hb = hb_per_bf * bf
     e_hits = hit_per_bf * bf
-    e_er = (e_hits + e_bb + e_hbp) * 0.30  # LR-3: HBP contributes to ER
+    e_hr = hr_per_bf * bf
+    e_er = (e_hits + e_bb + e_hb) * 0.30
     e_sv = sv_per_app * appearances
     e_hld = hld_per_app * appearances
+    # Blown saves: ~15% of save opportunities result in a blown save (MLB avg)
+    BS_RATE = 0.15
+    e_bs = e_sv * BS_RATE
 
     pts = (
         total_ip * rules.get("IP", 3)
         + e_k * rules.get("K", 1)
         + e_hits * rules.get("H", -1)
-        + e_er * rules.get("ER", -2)
+        + e_hr * rules.get("HR", -1)
+        + e_er * rules.get("ER", -1)
         + e_bb * rules.get("BB", -1)
-        + e_hbp * rules.get("HBP", -1)    # LR-3
+        + e_hb * rules.get("HB", 1)
         + e_sv * rules.get("SV", 5)
-        + e_hld * rules.get("HD", 2)
+        + e_hld * rules.get("HD", 0)  # HD removed from config; default 0 (not 2)
+        + e_bs * rules.get("BS", 0)
     )
 
-    return float(pts)
+    return float(round(pts))

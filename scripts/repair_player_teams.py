@@ -65,10 +65,16 @@ def fetch_teams_batch(player_ids: list[int], team_id_map: dict[int, str]) -> dic
 def repair(all_players: bool = False) -> None:
     sb = get_supabase()
 
-    # Fetch players to fix
+    # Fetch all players with pagination (Supabase default limit is 1000)
     logger.info("Querying players table...")
-    resp = sb.table("players").select("player_id,team,full_name").execute()
-    rows = resp.data
+    rows = []
+    offset = 0
+    while True:
+        resp = sb.table("players").select("player_id,team,full_name").range(offset, offset + 999).execute()
+        rows.extend(resp.data or [])
+        if len(resp.data or []) < 1000:
+            break
+        offset += 1000
 
     if all_players:
         to_fix = rows

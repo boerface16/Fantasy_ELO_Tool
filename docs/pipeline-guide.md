@@ -225,3 +225,8 @@ DATABASE_URL=postgresql://postgres.xxxxx:PASSWORD@host:5432/postgres
 ```
 
 If you're not sure where to find these, check the Supabase dashboard under **Settings → API** (for `SUPABASE_URL` and `SUPABASE_KEY`) and **Settings → Database → Connection string** (for `DATABASE_URL`).
+
+To check website changes!
+2 terminals
+uvicorn src.api.main:app --reload --port 8000
+npm run dev

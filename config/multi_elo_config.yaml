@@ -33,7 +33,7 @@ batter_dimensions:
   scale: 4.0
   reliability_threshold: 50
   expected_divisor: 425.0
-  description: Baserunning (SB/CS based)
+  description: Baserunning (SB/CS/3B)
 - name: clutch
   index: 4
   k_factor: 18.0
@@ -91,7 +91,7 @@ event_weights:
     contact: 0.3
     power: 0.3
     discipline: 0.0
-    speed: 0.0
+    speed: 0.5
     clutch_base: 0.7
   HR:
     contact: 0.2
@@ -248,8 +248,11 @@ baserunning_weights:
     speed: 1.0
     clutch_base: 0.3
   CS:
-    speed: -3.0
+    speed: -1.25
     clutch_base: -0.7
+  PKO:
+    speed: -0.5
+    clutch_base: -0.3
 composite_weights:
   batter:
     default:

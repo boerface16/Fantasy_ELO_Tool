@@ -7,7 +7,7 @@ Handles multiple formats:
 """
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 VALID_SLOTS = {
     "C", "1B", "2B", "3B", "SS", "OF", "DH", "UTIL",
@@ -31,14 +31,39 @@ POSITION_TAGS = {
     "C", "1B", "2B", "3B", "SS", "OF", "DH", "SP", "RP", "P", "LF", "CF", "RF",
 }
 
+# ESPN non-position eligible-slot codes (fantasy flex slots, not real positions)
+_ESPN_FLEX_SLOTS = {"IF", "MI", "CI", "UTIL", "BE", "BN", "NA", "IL", "IL+", "DL"}
+# Outfield aliases → normalize to "OF"
+_OF_ALIASES = {"LF", "CF", "RF"}
+
+
+def _normalize_positions(positions_str: str) -> list[str]:
+    """Parse 'RF/OF/DH/LF' or '1B/3B/IF/2B/SS' into a deduped list of real positions.
+
+    Strips ESPN fantasy flex codes (IF, MI, CI, etc.) and maps LF/CF/RF → OF.
+    """
+    seen: set[str] = set()
+    result: list[str] = []
+    for raw in positions_str.split("/"):
+        p = raw.strip().upper()
+        if not p or p in _ESPN_FLEX_SLOTS:
+            continue
+        if p in _OF_ALIASES:
+            p = "OF"
+        if p not in seen:
+            seen.add(p)
+            result.append(p)
+    return result
+
 
 @dataclass
 class RosterEntry:
-    slot: str       # lineup slot (C, 1B, SP, Bench, IL, etc.)
+    slot: str       # primary lineup slot (C, 1B, OF, SP, Bench, IL, etc.)
     name: str       # player full name
     team: str       # MLB team abbreviation (or "" if unknown)
-    player_id: int | None = None   # DB player_id (set during enrichment)
-    position: str | None = None    # DB position code (SP, RP, C, etc.)
+    player_id: int | None = None            # DB player_id (set during enrichment)
+    position: str | None = None             # DB position code (SP, RP, C, etc.)
+    eligible_positions: list[str] = field(default_factory=list)  # all real ESPN eligible positions
 
 
 def parse_roster_text(text: str) -> list[RosterEntry]:
@@ -102,14 +127,18 @@ def _parse_dash_separated(line: str) -> RosterEntry | None:
     if "-" not in line:
         return None
 
-    # Extract parenthesized position(s) like (C/DH), (SP), (2B/3B)
+    # Extract parenthesized position(s) like (C/DH), (SP), (2B/3B), (RF/OF/DH/LF)
     pos_match = re.search(r'\(([^)]+)\)', line)
     if not pos_match:
         return None
 
-    positions = pos_match.group(1)
-    # Use the first position as the slot
-    slot = positions.split("/")[0].strip()
+    positions_str = pos_match.group(1)
+    eligible = _normalize_positions(positions_str)
+
+    # Primary slot: first real position in the normalized list
+    if not eligible:
+        return None
+    slot = eligible[0]
     if slot.upper() not in {p.upper() for p in POSITION_TAGS}:
         return None
 
@@ -128,7 +157,7 @@ def _parse_dash_separated(line: str) -> RosterEntry | None:
     if not name:
         return None
 
-    return RosterEntry(slot=slot.upper(), name=name, team=team)
+    return RosterEntry(slot=slot.upper(), name=name, team=team, eligible_positions=eligible)
 
 
 def _parse_espn_tab(line: str) -> RosterEntry | None:

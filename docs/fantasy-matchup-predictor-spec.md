@@ -1,7 +1,7 @@
 # Fantasy Matchup Predictor — Functional Specification
 
 **Status**: Complete (all 4 phases implemented)
-**Date**: 2026-03-31
+**Date**: 2026-04-16
 **Based on**: mlb-elo-demo-2025 ELO engine + matchup predictor
 
 ---
@@ -29,22 +29,31 @@ batter:
   BB:  +1
   SB:  +1
   SO:  -1
+  E:   -3   # Errors
 
 pitcher:
   IP:  +3   # per full inning pitched
   K:   +1
-  W:   +2
+  W:   +5
   SV:  +5
-  HD:  +2
   H:   -1
-  ER:  -2
+  ER:  -1
+  HR:  -1
   BB:  -1
-  L:   -2
+  HB:  +1   # Hit batters (positive — incentivizes aggressive pitching)
+  L:   -5
+  BS:  -5   # Blown saves
+  B:   -10  # Balks
+  PKO: +2   # Pickoffs
+  CG:  +3   # Complete games
+  SHO: +5   # Shutouts
+  NH:  +10  # No hitters
+  PG:  +11  # Perfect games
 ```
 
 **Format**: H2H Points league
 
-**ESPN Standard Lineup Slots**: C, 1B, 2B, 3B, SS, DH/UTIL, OF×3, SP/RP×3, Bench×3, IL×3.
+**ESPN Lineup Slots**: C, 1B, 2B, SS, 3B, MI (2B/SS flex), CI (1B/3B flex), OF×5, UTIL (any) + 9 pitchers (mix of SP/RP).
 Players on the bench do not accrue stats. Multi-position eligible players (e.g., 1B/OF) can fill any of their eligible slots — the roster parser tracks all eligible positions for lineup flexibility analysis.
 
 ---
@@ -190,7 +199,17 @@ roster.md
 - `pybaseball.pitching_stats_range(...)` → IP/start, W rate, SV/HD rate
 - Output: enrichment dict keyed by player name; merged into player objects
 
-### 5.6 Matchup Predictor (`src/fantasy/matchup_predictor.py`)
+### 5.6 Speed ELO (`src/engine/` + `scripts/seed_speed_elo_fg.py`)
+
+A dedicated ELO dimension for stolen base talent, separate from the main multi-dimensional talent ELO.
+
+- **Seeded from**: Fangraphs sprint speed (ft/s) via `seed_speed_elo_fg.py`
+- **Mean**: 1500, **Std**: ~50 — same distribution as other ELO dimensions
+- **Used in**: `estimate_batter_points()` — scales stolen base rate via `speed_z = (speed_elo - 1500) / 50`
+- **Also drives**: Stage 3 triple split in `matchup_predictor.py` (faster batters have higher P(3B))
+- **Stored in**: `talent_player_current` table, `speed` dimension column
+
+### 5.7 Matchup Predictor (`src/fantasy/matchup_predictor.py`)
 - Port of `frontend/src/lib/matchupPredictor.ts` to Python
 - Same 3-stage decision tree (softmax → BIP → XBH split)
 - Same ELO distribution constants from `scripts/compute_matchup_constants.py`
@@ -198,7 +217,7 @@ roster.md
 - Output per PA: `{ bb, k, out, single, double, triple, hr, xwoba }`
 - Batch-friendly: accepts list of `(batter_elo, pitcher_elo)` tuples
 
-### 5.7 Fantasy Points Calculator (`src/fantasy/fantasy_calculator.py`)
+### 5.8 Fantasy Points Calculator (`src/fantasy/fantasy_calculator.py`)
 
 **Directly estimated per PA from matchup predictor:**
 
@@ -210,26 +229,25 @@ roster.md
 | H allowed (pitcher) | `P(hit) × batters_faced` |
 | BB allowed (pitcher) | `P(BB) × batters_faced` |
 | K (pitcher) | `P(K) × batters_faced` |
-| ER (pitcher) | `xwoba_allowed × IP × run_conversion_factor` |
+| ER (pitcher) | `(hits + BB + HBP) × 0.30 × batters_faced` |
 
-**Estimated from Fangraphs season rates:**
+**Estimated from calibration config + ELO:**
 
 | Stat | Method |
 |------|--------|
-| R | `R/G_rate × games_this_week` |
-| RBI | `RBI/G_rate × games_this_week` |
-| SB | `SB/G_rate × games_this_week` |
-| IP | `IP/start_rate × projected_starts` |
-| W/L/SV/HD | `rate × projected_appearances` |
+| R | `TB × r_per_tb (config) + speed_z × 0.015` |
+| RBI | `TB × rbi_per_tb (config)` |
+| SB | `(1B + BB + HBP) × speed_factor × pitcher_sb_factor × base_rate` |
+| IP | `Fangraphs IP/GS (SP); season_ip/season_g (RP)` |
+| W/L | `base rate adjusted by pitcher ELO vs opponent team ELO` |
+| SV/HLD | `Fangraphs historical sv_per_app and hld_per_app` |
+| BS | `SV opportunities × 15% blown save rate` |
 
-**Expected PAs per game:**
-- Batting order position 1–2: ~4.5 PA
-- Position 3–5: ~4.2 PA
-- Position 6–9: ~3.8 PA
-- Default (position unknown): 4.0 PA
-- Override available in `roster.md` via `[order:3]` tag
+**Expected PAs per game:** flat `3.9 PA/game` (batting order position not tracked)
 
-### 5.8 Team ELO Engine (`src/engine/team_elo_engine.py`) ← NEW, required for v1
+**Output:** all point values rounded to nearest whole number
+
+### 5.9 Team ELO Engine (`src/engine/team_elo_engine.py`)
 
 FiveThirtyEight-style team ELO system. Runs in parallel with player ELO.
 
@@ -256,7 +274,7 @@ run_diff      INT
 
 **UI use**: Show opponent team ELO + trend badge (🔥 hot / 🧊 cold) on batter and pitcher matchup views.
 
-### 5.9 Report Generator (`src/fantasy/report.py`)
+### 5.10 Report Generator (`src/fantasy/report.py`)
 - Per batter: game-by-game grid (opponent pitcher, matchup ELO breakdown, projected pts)
 - Per pitcher: projected starts, opponent lineup ELO average, projected pts
 - Team ELO badge for each opponent

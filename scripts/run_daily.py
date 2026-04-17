@@ -1,15 +1,19 @@
 """Daily pipeline orchestrator — runs all update steps in sequence.
 
 Usage:
-    python -m scripts.run_daily                    # yesterday
-    python -m scripts.run_daily --date 2025-09-28  # specific date
+    python -m scripts.run_daily                                      # yesterday
+    python -m scripts.run_daily --date 2026-04-15                   # specific date
+    python -m scripts.run_daily --start-date 2026-03-27 --end-date 2026-04-15  # date range
+    python -m scripts.run_daily --date 2026-04-15 --force           # reprocess
 
-Steps:
-    1. Player ELO + talent ELO (daily_pipeline)
-    2. Team ELO (incremental backfill for target date)
-    3. Refresh schedule cache (fetch this week's games)
+Steps per date:
+    1. Player ELO + talent ELO (daily_pipeline) — handles 3B and GBS via Statcast
+    2. Speed ELO supplement (MLB API box scores) — SB/CS events Statcast omits
+    3. Team ELO (incremental backfill for target date)
+
+Steps once (after all dates, using the final date's season):
     4. Refresh Fangraphs cache (batting + pitching stats)
-    5. Seed Speed ELO (MLB Stats API SB/CS totals)
+    5. Refresh schedule cache (fetch this week's games)
     6. Refresh player season stats (for exact ESPN fantasy point leaderboard)
     7. Refresh advanced stats (xWOBA, WRC+, WAR, xFIP-, SIERA for stat line)
     8. Print summary
@@ -32,25 +36,21 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Daily Pipeline Orchestrator")
-    parser.add_argument("--date", type=str, help="Target date (YYYY-MM-DD, default: yesterday)")
+    parser.add_argument("--date", type=str, help="Single target date (YYYY-MM-DD, default: yesterday)")
+    parser.add_argument("--start-date", type=str, help="Start of date range (YYYY-MM-DD), inclusive")
+    parser.add_argument("--end-date", type=str, help="End of date range (YYYY-MM-DD), inclusive")
+    parser.add_argument("--force", action="store_true", help="Re-process dates even if already processed")
     return parser.parse_args()
 
 
-def main():
-    args = parse_args()
-    target = date.fromisoformat(args.date) if args.date else date.today() - timedelta(days=1)
-    season = target.year
-
+def _run_date(target: date, force: bool) -> dict:
+    """Run ELO steps (1-3) for a single date. Returns per-step result dict."""
     results = {}
-    print(f"\n{'=' * 60}")
-    print(f"DAILY PIPELINE — {target.isoformat()}")
-    print(f"{'=' * 60}\n")
 
-    # Step 1: Player ELO + Talent
-    logger.info("Step 1/7: Player ELO + Talent update...")
+    logger.info("Step 1/3: Player ELO + Talent update...")
     try:
         from src.pipeline.daily_pipeline import run_daily_pipeline
-        result = run_daily_pipeline(target_date=target)
+        result = run_daily_pipeline(target_date=target, force=force)
         results["player_elo"] = result
         logger.info(f"  Status: {result['status']}")
         if result["status"] == "success":
@@ -59,8 +59,22 @@ def main():
         results["player_elo"] = {"status": "error", "error": str(e)}
         logger.error(f"  Failed: {e}")
 
-    # Step 2: Team ELO
-    logger.info("Step 2/7: Team ELO update...")
+    logger.info("Step 2/3: Speed ELO supplement (MLB API box scores)...")
+    try:
+        from src.etl.upload_to_supabase import get_supabase_client
+        from src.engine.speed_elo_daily import run_speed_elo_for_date
+        sb_client = get_supabase_client()
+        result = run_speed_elo_for_date(target, sb_client)
+        results["speed_elo"] = {"status": "success", **result}
+        logger.info(
+            f"  {result['players_updated']} players, "
+            f"+{result['sb_applied']} SB, -{result['cs_applied']} CS"
+        )
+    except Exception as e:
+        results["speed_elo"] = {"status": "error", "error": str(e)}
+        logger.error(f"  Failed: {e}")
+
+    logger.info("Step 3/3: Team ELO update...")
     try:
         from scripts.backfill_team_elo import run_backfill
         run_backfill(target_date=target.isoformat())
@@ -70,8 +84,14 @@ def main():
         results["team_elo"] = {"status": "error", "error": str(e)}
         logger.error(f"  Failed: {e}")
 
-    # Step 3: Refresh pitcher stats cache (MLB Stats API)
-    logger.info("Step 3/7: Pitcher stats cache refresh...")
+    return results
+
+
+def _run_season_refreshes(season: int) -> dict:
+    """Run season-level cache refreshes (steps 4-7). Returns per-step result dict."""
+    results = {}
+
+    logger.info("Step 4/7: Pitcher stats cache refresh...")
     try:
         from src.fantasy.fangraphs_enricher import get_pitcher_stats
         pitchers_df = get_pitcher_stats(season)
@@ -81,8 +101,7 @@ def main():
         results["pitcher_stats"] = {"status": "error", "error": str(e)}
         logger.error(f"  Failed: {e}")
 
-    # Step 4: Refresh schedule cache
-    logger.info("Step 4/7: Schedule fetch...")
+    logger.info("Step 5/7: Schedule fetch...")
     try:
         from src.fantasy.schedule_fetcher import fetch_week_schedule
         games = fetch_week_schedule(date.today())
@@ -92,18 +111,6 @@ def main():
         results["schedule"] = {"status": "error", "error": str(e)}
         logger.error(f"  Failed: {e}")
 
-    # Step 5: Speed ELO seed
-    logger.info("Step 5/7: Speed ELO seed (MLB Stats API)...")
-    try:
-        from scripts.seed_speed_elo_fg import run_speed_seed
-        result = run_speed_seed(season)
-        results["speed_elo"] = result
-        logger.info(f"  Speed ELO updated for {result['players_updated']} players")
-    except Exception as e:
-        results["speed_elo"] = {"status": "error", "error": str(e)}
-        logger.error(f"  Failed: {e}")
-
-    # Step 6: Refresh player season stats (leaderboard accuracy)
     logger.info("Step 6/7: Player season stats refresh (MLB Stats API)...")
     try:
         from src.etl.fetch_player_stats import build_upsert_rows, upsert_rows
@@ -117,7 +124,6 @@ def main():
         results["player_season_stats"] = {"status": "error", "error": str(e)}
         logger.error(f"  Failed: {e}")
 
-    # Step 7: Refresh advanced stats (xWOBA, WRC+, WAR, xFIP-, SIERA)
     logger.info("Step 7/7: Advanced stats refresh (Statcast + Fangraphs)...")
     try:
         from src.etl.fetch_fangraphs_stats import build_rows, upsert_rows as upsert_fg_rows
@@ -131,11 +137,63 @@ def main():
         results["advanced_stats"] = {"status": "error", "error": str(e)}
         logger.error(f"  Failed: {e}")
 
+    return results
+
+
+def main():
+    args = parse_args()
+
+    # Build list of dates to process
+    if args.start_date or args.end_date:
+        if not (args.start_date and args.end_date):
+            print("ERROR: --start-date and --end-date must both be provided for a range.")
+            sys.exit(1)
+        start = date.fromisoformat(args.start_date)
+        end = date.fromisoformat(args.end_date)
+        if start > end:
+            print("ERROR: --start-date must be on or before --end-date.")
+            sys.exit(1)
+        targets = [start + timedelta(days=i) for i in range((end - start).days + 1)]
+    else:
+        targets = [date.fromisoformat(args.date) if args.date else date.today() - timedelta(days=1)]
+
+    season = targets[-1].year
+    range_label = targets[0].isoformat() if len(targets) == 1 else f"{targets[0].isoformat()} → {targets[-1].isoformat()}"
+
+    print(f"\n{'=' * 60}")
+    print(f"DAILY PIPELINE — {range_label} ({len(targets)} date(s))")
+    print(f"{'=' * 60}\n")
+
+    all_results: dict[str, dict] = {}
+
+    # Per-date ELO steps
+    for target in targets:
+        if len(targets) > 1:
+            print(f"\n--- {target.isoformat()} ---")
+        date_results = _run_date(target, args.force)
+        all_results[target.isoformat()] = date_results
+
+    # Season-level refreshes — run once using the last date's season
+    season_results = _run_season_refreshes(season)
+
     # Summary
     print(f"\n{'=' * 60}")
     print("DAILY PIPELINE SUMMARY")
     print(f"{'=' * 60}")
-    for step, data in results.items():
+    if len(targets) > 1:
+        for d, dr in all_results.items():
+            statuses = [v.get("status", "?") for v in dr.values()]
+            ok = all(s == "success" for s in statuses)
+            step_summary = ", ".join(f"{k}={v.get('status', '?')}" for k, v in dr.items())
+            print(f"  [{'OK' if ok else 'FAIL'}] {d}: {step_summary}")
+    else:
+        for step, data in list(all_results.values())[0].items():
+            status = data.get("status", "unknown")
+            icon = "OK" if status == "success" else "FAIL"
+            print(f"  [{icon}] {step}: {status}")
+            if status == "error":
+                print(f"        {data.get('error', '')}")
+    for step, data in season_results.items():
         status = data.get("status", "unknown")
         icon = "OK" if status == "success" else "FAIL"
         print(f"  [{icon}] {step}: {status}")

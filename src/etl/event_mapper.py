@@ -9,7 +9,7 @@ VALID_RESULT_TYPES = {
     'BB', 'IBB', 'HBP',
     'StrikeOut', 'OUT', 'SAC', 'FC', 'E', 'GIDP',
     'POPUP', 'GROUNDOUT',
-    'SB', 'CS',
+    'SB', 'CS', 'PKO',
 }
 
 EVENT_MAP = {
@@ -44,9 +44,12 @@ EVENT_MAP = {
     'caught_stealing_2b': 'CS',
     'caught_stealing_3b': 'CS',
     'caught_stealing_home': 'CS',
-    'pickoff_caught_stealing_2b': 'CS',
-    'pickoff_caught_stealing_3b': 'CS',
-    'pickoff_caught_stealing_home': 'CS',
+    'pickoff_caught_stealing_2b': 'PKO',
+    'pickoff_caught_stealing_3b': 'PKO',
+    'pickoff_caught_stealing_home': 'PKO',
+    'pickoff_1b': 'PKO',
+    'pickoff_2b': 'PKO',
+    'pickoff_3b': 'PKO',
 }
 
 

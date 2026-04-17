@@ -34,28 +34,79 @@ from src.etl.upload_to_supabase import (
 
 
 def load_pa_from_supabase(client) -> pd.DataFrame:
-    """Supabase에서 전체 PA 데이터 로드 (정렬: game_date, pa_id)."""
+    """Supabase에서 전체 PA 데이터 로드 (정렬: game_date, pa_id).
+
+    Uses keyset (cursor) pagination to avoid OFFSET-based full table scans,
+    which time out at high offsets due to Supabase's statement timeout.
+    Each page fetch is retried up to 3 times with 2s backoff on transient errors.
+    """
+    import time
+
     print("Loading PA data from Supabase...")
 
-    all_rows = []
-    page_size = 1000
-    offset = 0
+    COLUMNS = (
+        'pa_id, game_pk, game_date, batter_id, pitcher_id, result_type, '
+        'delta_run_exp, on_1b, on_2b, on_3b, outs_when_up, home_team'
+    )
+    PAGE_SIZE = 1000
+    MAX_RETRIES = 3
+    RETRY_BACKOFF = 2  # seconds
+
+    all_rows: list[dict] = []
+    # Cursor tracks the last seen (game_date, pa_id) so the next page starts
+    # strictly after that position, avoiding expensive OFFSET seeks.
+    last_date: str | None = None
+    last_pa_id: int | None = None
 
     while True:
-        response = (
+        # --- build query for this page ---
+        query = (
             client.table('plate_appearances')
-            .select('pa_id, game_pk, game_date, batter_id, pitcher_id, result_type, delta_run_exp, on_1b, on_2b, on_3b, outs_when_up, home_team')
-            .order('game_date')
-            .order('pa_id')
-            .range(offset, offset + page_size - 1)
-            .execute()
+            .select(COLUMNS)
+            .order('game_date', desc=False)
+            .order('pa_id', desc=False)
+            .limit(PAGE_SIZE)
         )
-        rows = response.data
+
+        if last_date is not None:
+            # Keyset filter: rows where (game_date, pa_id) > (last_date, last_pa_id).
+            # PostgREST doesn't support tuple comparisons directly, so we use a
+            # two-condition approach: either a later date, or same date with a
+            # higher pa_id. The .or_() call translates to:
+            #   game_date > last_date  OR  (game_date = last_date AND pa_id > last_pa_id)
+            query = query.or_(
+                f"game_date.gt.{last_date},"
+                f"and(game_date.eq.{last_date},pa_id.gt.{last_pa_id})"
+            )
+
+        # --- fetch with retry ---
+        rows = None
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                response = query.execute()
+                rows = response.data
+                break
+            except Exception as exc:
+                if attempt == MAX_RETRIES:
+                    raise
+                print(
+                    f"  [warn] page fetch failed (attempt {attempt}/{MAX_RETRIES}): {exc} "
+                    f"— retrying in {RETRY_BACKOFF}s..."
+                )
+                time.sleep(RETRY_BACKOFF)
+
         if not rows:
             break
+
         all_rows.extend(rows)
-        offset += page_size
-        if len(rows) < page_size:
+
+        # Advance cursor to the last row of this page
+        last_row = rows[-1]
+        last_date = last_row['game_date']
+        last_pa_id = last_row['pa_id']
+
+        if len(rows) < PAGE_SIZE:
+            # Partial page means we've reached the end of the table
             break
 
     df = pd.DataFrame(all_rows)
@@ -231,10 +282,16 @@ def main():
     print(f"  daily_ohlc: {r.count} rows")
     r = client.table('talent_player_current').select('player_id', count='exact').execute()
     print(f"  talent_player_current: {r.count} rows")
-    r = client.table('talent_pa_detail').select('id', count='exact').execute()
-    print(f"  talent_pa_detail: {r.count} rows")
-    r = client.table('talent_daily_ohlc').select('id', count='exact').execute()
-    print(f"  talent_daily_ohlc: {r.count} rows")
+    try:
+        r = client.table('talent_pa_detail').select('id', count='exact').execute()
+        print(f"  talent_pa_detail: {r.count} rows")
+    except Exception:
+        print(f"  talent_pa_detail: (count unavailable — table too large)")
+    try:
+        r = client.table('talent_daily_ohlc').select('id', count='exact').execute()
+        print(f"  talent_daily_ohlc: {r.count} rows")
+    except Exception:
+        print(f"  talent_daily_ohlc: (count unavailable — table too large)")
 
     print("\nDone!")
 

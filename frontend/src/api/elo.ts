@@ -85,6 +85,7 @@ export interface PlayerGameEntry {
     k: number;
     ip?: number;
     h?: number;
+    er?: number | null;
   };
 }
 

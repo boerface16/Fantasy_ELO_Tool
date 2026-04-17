@@ -40,19 +40,69 @@ async def player_talent_ohlc(player_id: int, talent_type: str = Query(...), seas
     if season is not None:
         query = query.gte("game_date", f"{season}-01-01").lt("game_date", f"{season + 1}-01-01")
     resp = query.execute()
-    return [
-        {
-            "game_date": r["game_date"],
-            "open":      r["open_elo"],
-            "high":      r["high_elo"],
-            "low":       r["low_elo"],
-            "close":     r["close_elo"],
-            "delta":     r["close_elo"] - r["open_elo"],
-            "total_pa":  r["total_pa"],
-            "role":      talent_type,
-        }
-        for r in resp.data or []
-    ]
+    ohlc_by_date = {r["game_date"]: r for r in resp.data or []}
+
+    # Build date spine from daily_ohlc (one row per game day the player appeared).
+    # This covers both BATTING and PITCHING roles — use whichever has data.
+    spine_query = (
+        sb.table("daily_ohlc")
+        .select("game_date")
+        .eq("player_id", player_id)
+        .eq("elo_type", "SEASON")
+        .order("game_date")
+    )
+    if season is not None:
+        spine_query = spine_query.gte("game_date", f"{season}-01-01").lt("game_date", f"{season + 1}-01-01")
+    spine_dates = [r["game_date"] for r in spine_query.execute().data or []]
+
+    # Deduplicate dates (player may have both BATTING and PITCHING rows on same day)
+    spine_dates = sorted(set(spine_dates))
+
+    if not spine_dates:
+        # No game-day spine — return raw rows only
+        return [
+            {
+                "game_date": r["game_date"],
+                "open":     r["open_elo"],
+                "high":     r["high_elo"],
+                "low":      r["low_elo"],
+                "close":    r["close_elo"],
+                "delta":    r["close_elo"] - r["open_elo"],
+                "total_pa": r["total_pa"],
+                "role":     talent_type,
+            }
+            for r in resp.data or []
+        ]
+
+    # Forward-fill: emit flat candle on game days with no talent event
+    result = []
+    last_close = 1500.0
+    for gd in spine_dates:
+        if gd in ohlc_by_date:
+            r = ohlc_by_date[gd]
+            result.append({
+                "game_date": gd,
+                "open":     r["open_elo"],
+                "high":     r["high_elo"],
+                "low":      r["low_elo"],
+                "close":    r["close_elo"],
+                "delta":    r["close_elo"] - r["open_elo"],
+                "total_pa": r["total_pa"],
+                "role":     talent_type,
+            })
+            last_close = r["close_elo"]
+        else:
+            result.append({
+                "game_date": gd,
+                "open":     last_close,
+                "high":     last_close,
+                "low":      last_close,
+                "close":    last_close,
+                "delta":    0.0,
+                "total_pa": 0,
+                "role":     talent_type,
+            })
+    return result
 
 
 @router.get("/leaderboard")

@@ -1,9 +1,170 @@
 """ELO endpoints — ports of frontend/src/api/elo.ts Supabase queries."""
 
+import asyncio
 import yaml
 import os
+from datetime import date as _date
+import httpx
 from fastapi import APIRouter, Query
 from src.api.deps import get_supabase
+
+_MLB_STATS_BASE = "https://statsapi.mlb.com/api/v1"
+
+
+def _parse_ip(ip_str: str) -> float:
+    """Convert baseball IP notation string to true decimal innings.
+    '7.0' → 7.0, '7.1' → 7.333, '7.2' → 7.667
+    """
+    parts = str(ip_str).split(".")
+    full = int(parts[0])
+    outs = int(parts[1]) if len(parts) > 1 else 0
+    return full + outs / 3.0
+
+
+def _fetch_pitcher_game_log(player_id: int, season: int) -> dict[int, dict]:
+    """Fetch actual per-game pitching stats from MLB Stats API, keyed by gamePk.
+    Returns empty dict on failure (caller falls back to PA-derived stats).
+    """
+    url = (
+        f"{_MLB_STATS_BASE}/people/{player_id}/stats"
+        f"?stats=gameLog&group=pitching&season={season}&gameType=R"
+    )
+    try:
+        resp = httpx.get(url, timeout=5.0)
+        resp.raise_for_status()
+        splits = resp.json().get("stats", [{}])[0].get("splits", [])
+    except Exception:
+        return {}
+
+    result = {}
+    for split in splits:
+        gpk = split.get("game", {}).get("gamePk")
+        st = split.get("stat", {})
+        if not gpk:
+            continue
+        result[gpk] = {
+            "ip":  _parse_ip(str(st.get("inningsPitched", "0.0"))),
+            "h":   int(st.get("hits", 0)),
+            "er":  int(st.get("earnedRuns", 0)),
+            "hr":  int(st.get("homeRuns", 0)),
+            "bb":  int(st.get("baseOnBalls", 0)),
+            "k":   int(st.get("strikeOuts", 0)),
+            "hb":  int(st.get("hitByPitch", 0)),
+            "w":   int(st.get("wins", 0)),
+            "l":   int(st.get("losses", 0)),
+            "sv":  int(st.get("saves", 0)),
+            "bs":  int(st.get("blownSaves", 0)),
+            "cg":  int(st.get("completeGames", 0)),
+            "sho": int(st.get("shutouts", 0)),
+            "b":   int(st.get("balks", 0)),
+            "pko": int(st.get("pickoffs", 0)),
+        }
+    return result
+
+
+def _fetch_batter_game_log(player_id: int, season: int) -> dict[int, dict]:
+    """Fetch actual per-game hitting stats from MLB Stats API, keyed by gamePk.
+    Returns empty dict on failure (caller falls back to PA-derived stats).
+    """
+    url = (
+        f"{_MLB_STATS_BASE}/people/{player_id}/stats"
+        f"?stats=gameLog&group=hitting&season={season}&gameType=R"
+    )
+    try:
+        resp = httpx.get(url, timeout=5.0)
+        resp.raise_for_status()
+        splits = resp.json().get("stats", [{}])[0].get("splits", [])
+    except Exception:
+        return {}
+
+    result = {}
+    for split in splits:
+        gpk = split.get("game", {}).get("gamePk")
+        st = split.get("stat", {})
+        if not gpk:
+            continue
+        result[gpk] = {
+            "pa":  int(st.get("plateAppearances", 0)),
+            "tb":  int(st.get("totalBases", 0)),
+            "r":   int(st.get("runs", 0)),
+            "rbi": int(st.get("rbi", 0)),
+            "hr":  int(st.get("homeRuns", 0)),
+            "bb":  int(st.get("baseOnBalls", 0)) + int(st.get("intentionalWalks", 0)),
+            "k":   int(st.get("strikeOuts", 0)),
+            "sb":  int(st.get("stolenBases", 0)),
+        }
+    return result
+
+
+def _pitcher_pts_actual(stats: dict, rules: dict) -> float:
+    """Compute fantasy points from actual MLB boxscore pitching stats (no estimation)."""
+    return (
+        stats["ip"]  * rules.get("IP",   3)
+        + stats["k"]   * rules.get("K",    1)
+        + stats["h"]   * rules.get("H",   -1)
+        + stats["er"]  * rules.get("ER",  -1)
+        + stats["hr"]  * rules.get("HR",  -1)
+        + stats["bb"]  * rules.get("BB",  -1)
+        + stats["hb"]  * rules.get("HB",   1)
+        + stats["w"]   * rules.get("W",    5)
+        + stats["l"]   * rules.get("L",   -5)
+        + stats["sv"]  * rules.get("SV",   5)
+        + stats["bs"]  * rules.get("BS",  -5)
+        + stats["cg"]  * rules.get("CG",   3)
+        + stats["sho"] * rules.get("SHO",  5)
+        + stats["b"]   * rules.get("B",  -10)
+        + stats["pko"] * rules.get("PKO",  2)
+    )
+
+
+def _batter_pts_actual(stats: dict, rules: dict) -> float:
+    """Compute fantasy points from actual MLB boxscore hitting stats."""
+    return (
+        stats["tb"]  * rules.get("TB",  1)
+        + stats["r"]   * rules.get("R",   1)
+        + stats["rbi"] * rules.get("RBI", 1)
+        + stats["bb"]  * rules.get("BB",  1)
+        + stats["sb"]  * rules.get("SB",  1)
+        + stats["k"]   * rules.get("SO", -1)
+        # E: not in hitting game log; always 0
+    )
+
+
+async def _fetch_batter_day_stats_batch(
+    player_ids: list[int], game_date: str, season: int
+) -> dict[int, dict | None]:
+    """Fetch actual hitting stats for multiple players on a given date, in parallel."""
+
+    async def fetch_one(client: httpx.AsyncClient, player_id: int) -> tuple[int, dict | None]:
+        url = (
+            f"{_MLB_STATS_BASE}/people/{player_id}/stats"
+            f"?stats=gameLog&group=hitting&season={season}&gameType=R"
+        )
+        try:
+            resp = await client.get(url, timeout=5.0)
+            resp.raise_for_status()
+            splits = resp.json().get("stats", [{}])[0].get("splits", [])
+            for split in splits:
+                if split.get("date") == game_date:
+                    st = split.get("stat", {})
+                    return player_id, {
+                        "pa":  int(st.get("plateAppearances", 0)),
+                        "tb":  int(st.get("totalBases", 0)),
+                        "r":   int(st.get("runs", 0)),
+                        "rbi": int(st.get("rbi", 0)),
+                        "hr":  int(st.get("homeRuns", 0)),
+                        "bb":  int(st.get("baseOnBalls", 0)) + int(st.get("intentionalWalks", 0)),
+                        "k":   int(st.get("strikeOuts", 0)),
+                        "sb":  int(st.get("stolenBases", 0)),
+                    }
+        except Exception:
+            pass
+        return player_id, None
+
+    async with httpx.AsyncClient() as client:
+        results = await asyncio.gather(*[fetch_one(client, pid) for pid in player_ids])
+
+    return dict(results)
 
 _SCORING_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "..", "config", "espn_scoring.yaml")
 
@@ -16,9 +177,10 @@ def _batter_pts(rt_counts: dict, rules: dict) -> float:
     d = rt_counts.get("Double", 0)
     t = rt_counts.get("Triple", 0)
     hr = rt_counts.get("HR", 0)
-    bb = rt_counts.get("BB", 0) + rt_counts.get("IBB", 0) + rt_counts.get("HBP", 0)
+    bb = rt_counts.get("BB", 0) + rt_counts.get("IBB", 0)
     k = rt_counts.get("StrikeOut", 0)
     sb = rt_counts.get("SB", 0)
+    e = rt_counts.get("E", 0)
     tb = s + d * 2 + t * 3 + hr * 4
     return (
         tb * rules.get("TB", 1)
@@ -27,22 +189,27 @@ def _batter_pts(rt_counts: dict, rules: dict) -> float:
         + bb * rules.get("BB", 1)
         + sb * rules.get("SB", 1)
         + k * rules.get("SO", -1)
+        + e * rules.get("E", -3)
     )
 
 def _pitcher_pts(rt_counts: dict, rules: dict) -> float:
     k = rt_counts.get("StrikeOut", 0)
-    bb = rt_counts.get("BB", 0) + rt_counts.get("IBB", 0) + rt_counts.get("HBP", 0)
+    bb = rt_counts.get("BB", 0) + rt_counts.get("IBB", 0)
+    hb = rt_counts.get("HBP", 0)
+    hr = rt_counts.get("HR", 0)
     h = (rt_counts.get("Single", 0) + rt_counts.get("Double", 0)
-         + rt_counts.get("Triple", 0) + rt_counts.get("HR", 0))
+         + rt_counts.get("Triple", 0) + hr)
     outs = rt_counts.get("OUT", 0) + rt_counts.get("POPUP", 0) + rt_counts.get("GROUNDOUT", 0) + k
     ip = outs / 3.0
-    er_est = (h + bb) * 0.30
+    er_est = (h + bb + hb) * 0.30
     return (
         ip * rules.get("IP", 3)
         + k * rules.get("K", 1)
         + h * rules.get("H", -1)
-        + er_est * rules.get("ER", -2)
+        + hr * rules.get("HR", -1)
+        + er_est * rules.get("ER", -1)
         + bb * rules.get("BB", -1)
+        + hb * rules.get("HB", 1)
     )
 
 router = APIRouter()
@@ -134,17 +301,16 @@ async def player_elo(player_id: int):
 
 
 @router.get("/players/{player_id}/ohlc")
-async def player_ohlc(player_id: int, role: str = None, season: int = None):
+async def player_ohlc(player_id: int, role: str = Query("BATTING"), season: int = None):
     sb = get_supabase()
     query = (
         sb.table("daily_ohlc")
         .select("game_date, open, high, low, close, delta, total_pa, role")
         .eq("player_id", player_id)
         .eq("elo_type", "SEASON")
+        .eq("role", role)
         .order("game_date")
     )
-    if role:
-        query = query.eq("role", role)
     if season:
         query = query.gte("game_date", f"{season}-01-01").lt("game_date", f"{season + 1}-01-01")
 
@@ -153,7 +319,7 @@ async def player_ohlc(player_id: int, role: str = None, season: int = None):
 
 
 @router.get("/players/{player_id}/stats")
-async def player_stats(player_id: int, role: str = None):
+async def player_stats(player_id: int, role: str = "BATTING"):
     ohlc_data = (await player_ohlc(player_id, role))
 
     if not ohlc_data:
@@ -245,6 +411,15 @@ async def player_games(
     batter_rules = scoring["batter"]
     pitcher_rules = scoring["pitcher"]
 
+    # Fetch actual MLB Stats API game logs (actual R/RBI/SB for batters; actual IP/ER/W/L for pitchers)
+    first_date = (resp.data or [{}])[0].get("game_date", "")
+    season = int(first_date[:4]) if first_date else _date.today().year
+    mlb_game_log: dict[int, dict] = {}
+    if role == "BATTING":
+        mlb_game_log = _fetch_batter_game_log(player_id, season)
+    else:
+        mlb_game_log = _fetch_pitcher_game_log(player_id, season)
+
     result = []
     for pk in recent_pks:
         g = games[pk]
@@ -260,31 +435,54 @@ async def player_games(
             opponent = g["away_team"] if ih == "Top" else g["home_team"]
 
         ohlc = ohlc_by_date.get(g["game_date"], {})
+        actual = mlb_game_log.get(pk)
 
         if role == "BATTING":
-            pts = _batter_pts(rt_counts, batter_rules)
-            tb = (rt_counts.get("Single", 0) + rt_counts.get("Double", 0) * 2
-                  + rt_counts.get("Triple", 0) * 3 + rt_counts.get("HR", 0) * 4)
-            stats = {
-                "pa": len(g["result_types"]),
-                "tb": tb,
-                "hr": rt_counts.get("HR", 0),
-                "bb": rt_counts.get("BB", 0) + rt_counts.get("IBB", 0) + rt_counts.get("HBP", 0),
-                "k": rt_counts.get("StrikeOut", 0),
-            }
+            if actual:
+                pts = _batter_pts_actual(actual, batter_rules)
+                stats = {
+                    "pa": actual["pa"],
+                    "tb": actual["tb"],
+                    "hr": actual["hr"],
+                    "bb": actual["bb"],
+                    "k":  actual["k"],
+                }
+            else:
+                pts = _batter_pts(rt_counts, batter_rules)
+                tb = (rt_counts.get("Single", 0) + rt_counts.get("Double", 0) * 2
+                      + rt_counts.get("Triple", 0) * 3 + rt_counts.get("HR", 0) * 4)
+                stats = {
+                    "pa": len(g["result_types"]),
+                    "tb": tb,
+                    "hr": rt_counts.get("HR", 0),
+                    "bb": rt_counts.get("BB", 0) + rt_counts.get("IBB", 0),
+                    "k":  rt_counts.get("StrikeOut", 0),
+                }
         else:
-            pts = _pitcher_pts(rt_counts, pitcher_rules)
-            outs = (rt_counts.get("OUT", 0) + rt_counts.get("POPUP", 0)
-                    + rt_counts.get("GROUNDOUT", 0) + rt_counts.get("StrikeOut", 0))
-            h = (rt_counts.get("Single", 0) + rt_counts.get("Double", 0)
-                 + rt_counts.get("Triple", 0) + rt_counts.get("HR", 0))
-            stats = {
-                "bf": len(g["result_types"]),
-                "ip": round(outs / 3, 1),
-                "h": h,
-                "bb": rt_counts.get("BB", 0) + rt_counts.get("IBB", 0) + rt_counts.get("HBP", 0),
-                "k": rt_counts.get("StrikeOut", 0),
-            }
+            if actual:
+                pts = _pitcher_pts_actual(actual, pitcher_rules)
+                stats = {
+                    "ip":  actual["ip"],
+                    "h":   actual["h"],
+                    "er":  actual["er"],
+                    "hr":  actual["hr"],
+                    "bb":  actual["bb"],
+                    "k":   actual["k"],
+                }
+            else:
+                pts = _pitcher_pts(rt_counts, pitcher_rules)
+                outs = (rt_counts.get("OUT", 0) + rt_counts.get("POPUP", 0)
+                        + rt_counts.get("GROUNDOUT", 0) + rt_counts.get("StrikeOut", 0))
+                h = (rt_counts.get("Single", 0) + rt_counts.get("Double", 0)
+                     + rt_counts.get("Triple", 0) + rt_counts.get("HR", 0))
+                stats = {
+                    "ip":  outs // 3 + (outs % 3) * 0.1,
+                    "h":   h,
+                    "er":  None,
+                    "hr":  rt_counts.get("HR", 0),
+                    "bb":  rt_counts.get("BB", 0) + rt_counts.get("IBB", 0),
+                    "k":   rt_counts.get("StrikeOut", 0),
+                }
 
         result.append({
             "gamePk": pk,
@@ -365,9 +563,20 @@ async def _daily_fantasy(date: str, role: str, hot: bool) -> list:
     pts_fn = _pitcher_pts if role == "pitcher" else _batter_pts
     pts_map = {pid: pts_fn(rt_counts, rules) for pid, rt_counts in player_rts.items()}
 
+    # Initial estimated ranking to identify top/bottom 10 candidates
     sorted_ids = sorted(pts_map, key=lambda p: pts_map[p], reverse=hot)[:10]
     if not sorted_ids:
         return []
+
+    # For batters: refine the top/bottom 10 with actual R/RBI/SB from MLB Stats API
+    if role == "batter":
+        season = int(date[:4]) if date else _date.today().year
+        actual_map = await _fetch_batter_day_stats_batch(sorted_ids, date, season)
+        for pid, actual in actual_map.items():
+            if actual:
+                pts_map[pid] = _batter_pts_actual(actual, rules)
+        # Re-sort after actual stats applied
+        sorted_ids = sorted(sorted_ids, key=lambda p: pts_map[p], reverse=hot)
 
     name_resp = (
         sb.table("players")

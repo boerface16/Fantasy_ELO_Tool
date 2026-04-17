@@ -221,19 +221,35 @@ def _build_talent_reset_records(
 def _detect_season_boundary(client, target_date: date) -> bool:
     """Check if target_date is the first game day of a new season.
 
-    Compares target year against the most recent game_date in plate_appearances.
+    Checks player_elo.last_game_date first (reliable even without prior-year PAs),
+    then falls back to plate_appearances. Returns True only when prior game data
+    exists and its year is earlier than target_date.year — prevents a false True
+    on a brand-new empty system.
     """
+    # Primary: player_elo.last_game_date is always up-to-date after each run
     resp = (
+        client.table("player_elo")
+        .select("last_game_date")
+        .not_.is_("last_game_date", "null")
+        .order("last_game_date", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if resp.data:
+        last_year = int(resp.data[0]["last_game_date"][:4])
+        return target_date.year > last_year
+
+    # Fallback: plate_appearances
+    resp2 = (
         client.table("plate_appearances")
         .select("game_date")
         .order("game_date", desc=True)
         .limit(1)
         .execute()
     )
-    if not resp.data:
+    if not resp2.data:
         return False
-    last_date = resp.data[0]["game_date"]
-    last_year = int(last_date[:4])
+    last_year = int(resp2.data[0]["game_date"][:4])
     return target_date.year > last_year
 
 
@@ -389,11 +405,13 @@ def run_daily_pipeline(target_date: date | None = None, force: bool = False) -> 
 
     client = get_supabase_client()
 
-    # 1. Idempotency check
+    # 1. Idempotency check — exclude synthetic speed rows (SB/CS/PKO) so their
+    #    presence from backfill doesn't prevent real Statcast data from being loaded.
     existing = (
         client.table('plate_appearances')
         .select('pa_id', count='exact')
         .eq('game_date', date_str)
+        .not_.in_('result_type', ['SB', 'CS', 'PKO'])
         .limit(1)
         .execute()
     )

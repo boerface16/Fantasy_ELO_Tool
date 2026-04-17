@@ -4,7 +4,7 @@ Resolves which pitcher each batter faces and which lineup each pitcher faces,
 based on team affiliations and the weekly schedule.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 
 from src.fantasy.roster_parser import RosterEntry
@@ -27,7 +27,8 @@ class MatchupSlot:
     opponent_pitcher_name: str
     is_home: bool
     venue: str
-    is_start: bool = True  # False for RP relief appearances
+    is_start: bool = True                              # False for RP relief appearances
+    eligible_positions: list[str] = field(default_factory=list)  # player's real ESPN positions
 
 
 def resolve_opponents(
@@ -110,4 +111,5 @@ def _make_matchup(entry: RosterEntry, game: ScheduleGame, is_home: bool) -> Matc
         opponent_pitcher_name=opp_pitcher_name,
         is_home=is_home,
         venue=game.venue,
+        eligible_positions=entry.eligible_positions,
     )

@@ -7,21 +7,28 @@ batter:
   R: 1        # Runs scored
   RBI: 1      # Runs batted in
   BB: 1       # Walks
-  HBP: 1      # Hit by pitch
   SB: 1       # Stolen bases
   SO: -1      # Strikeouts
+  E: -3       # Errors
 
 pitcher:
   IP: 3       # Per full inning pitched
   K: 1        # Strikeouts
-  W: 2        # Wins
+  W: 5        # Wins
   SV: 5       # Saves
-  HD: 2       # Holds
   H: -1       # Hits allowed
-  ER: -2      # Earned runs
-  BB: -1      # Walks allowed
-  HBP: -1     # Hit batter
-  L: -2       # Losses
+  ER: -1      # Earned runs
+  HR: -1      # Home runs allowed
+  BB: -1      # Walks issued
+  HB: 1       # Hit batsmen
+  L: -5       # Losses
+  BS: -5      # Blown saves
+  B: -10      # Balks
+  PKO: 2      # Pick offs
+  CG: 3       # Complete games
+  SHO: 5      # Shutouts
+  NH: 10      # No hitters
+  PG: 11      # Perfect games
 
 # Calibration parameters for batter R/RBI estimation
 calibration:

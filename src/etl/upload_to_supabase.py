@@ -2,6 +2,7 @@
 
 import os
 import math
+import time
 import logging
 
 import pandas as pd
@@ -45,7 +46,7 @@ def prepare_pa_records(pa_df: pd.DataFrame) -> list[dict]:
     return records
 
 
-def upload_table(client, table_name: str, records: list[dict], batch_size: int = 500,
+def upload_table(client, table_name: str, records: list[dict], batch_size: int = 250,
                  on_conflict: str | None = None) -> int:
     """Supabase 테이블에 batch upsert.
 
@@ -59,7 +60,19 @@ def upload_table(client, table_name: str, records: list[dict], batch_size: int =
     for i in range(0, total, batch_size):
         batch = records[i:i + batch_size]
         q = client.table(table_name).upsert(batch, on_conflict=on_conflict) if on_conflict else client.table(table_name).upsert(batch)
-        q.execute()
+        # Retry up to 3 times on transient errors (e.g. statement timeout).
+        for attempt in range(3):
+            try:
+                q.execute()
+                break
+            except Exception as exc:
+                if attempt == 2:
+                    raise
+                logger.warning(
+                    f"  {table_name} batch {i}–{i + len(batch)} failed "
+                    f"(attempt {attempt + 1}/3): {exc} — retrying in 3s"
+                )
+                time.sleep(3)
         uploaded += len(batch)
         if uploaded % 5000 == 0 or uploaded == total:
             logger.info(f"  {table_name}: {uploaded:,} / {total:,}")

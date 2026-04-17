@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { BookOpen, Code, Info, ChevronDown, ChevronUp, Sparkles, Crosshair } from 'lucide-react';
+import { BookOpen, Code, Info, ChevronDown, ChevronUp, Sparkles, Crosshair, Shield, Trophy } from 'lucide-react';
 import { useSeasonMeta } from '../hooks/useElo';
 
-type Tab = 'overview' | 'general' | 'talent' | 'matchup' | 'developer';
+type Tab = 'overview' | 'general' | 'talent' | 'matchup' | 'fantasy' | 'teamelo' | 'developer';
 
 function Accordion({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -29,7 +29,7 @@ function Accordion({ title, children, defaultOpen = false }: { title: string; ch
   );
 }
 
-function OverviewTab() {
+function OverviewTab({ seasonYear }: { seasonYear: string | number }) {
   return (
     <div className="space-y-6 text-text-primary leading-relaxed">
       {/* Abstract */}
@@ -45,6 +45,18 @@ function OverviewTab() {
           MLB plate appearances. Each PA is a head-to-head contest between batter and pitcher. The batter's
           gain is exactly the pitcher's loss (<strong>zero-sum</strong>). The result is a unified scale where
           1,500 is league average, elite batters climb above 2,000, and dominant pitchers approach 1,900.
+        </p>
+        <p className="mt-2 text-sm text-text-secondary">
+          Initial ELO framework based on{' '}
+          <a
+            href="https://github.com/mingksong/mlb-elo-demo-2025"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent-primary underline hover:opacity-80"
+          >
+            mlb-elo-demo-2025
+          </a>{' '}
+          by mingksong.
         </p>
         <p className="mt-2">Three adjustments ensure fairness:</p>
         <ul className="list-disc pl-5 space-y-1 mt-1">
@@ -107,10 +119,10 @@ function OverviewTab() {
       <section>
         <h3 className="text-xl font-bold text-text-primary mb-3">Data Source</h3>
         <ul className="list-disc pl-5 space-y-1">
-          <li><strong>MLB Statcast</strong> via Baseball Savant</li>
-          <li><strong>711,897 pitches</strong> aggregated into <strong>183,092 plate appearances</strong></li>
-          <li><strong>2,428 games</strong> across the current season</li>
-          <li><strong>1,469 players</strong> (batters and pitchers)</li>
+          <li><strong>MLB Statcast</strong> via Baseball Savant — fetched and processed daily</li>
+          <li>Pitch-level data aggregated into plate appearances, enriched with delta run expectancy (RE24)</li>
+          <li>Coverage: the full {seasonYear} MLB season, growing with every game played</li>
+          <li>Advanced metrics (xWOBA, WRC+, WAR, xFIP−, SIERA) from Baseball Savant and Fangraphs</li>
         </ul>
         <p className="mt-3 font-semibold text-text-primary">Key Metric: delta_run_exp</p>
         <p className="mt-1">
@@ -303,16 +315,15 @@ function OverviewTab() {
       {/* Architecture */}
       <section>
         <h3 className="text-xl font-bold text-text-primary mb-3">System Architecture</h3>
-        <div className="bg-bg-elevated/40 rounded-lg p-4 font-mono text-sm overflow-x-auto">
-          <p>[Statcast Parquet] → ETL → [Supabase plate_appearances] → ELO Engine → [player_elo / daily_ohlc]</p>
-          <p className="ml-56 text-text-secondary">↑ RE24 Baseline + Park Factors</p>
-        </div>
-        <ol className="list-decimal pl-5 space-y-1 mt-3">
-          <li><strong>Raw Data</strong> — Statcast pitch-level parquet (711K rows, 118 columns)</li>
-          <li><strong>ETL</strong> — Aggregate to plate appearance level, extract delta_run_exp, base-out state, venue</li>
-          <li><strong>ELO Engine (V5.3)</strong> — Process PAs chronologically with park factor + state normalization</li>
-          <li><strong>Output</strong> — Per-PA ELO detail records + daily OHLC candlestick aggregation</li>
-          <li><strong>Frontend</strong> — React SPA reading directly from Supabase</li>
+        <p>A 7-step daily pipeline runs each morning and incrementally updates all data:</p>
+        <ol className="list-decimal pl-5 space-y-2 mt-3">
+          <li><strong>Player ELO + Talent ELO</strong> — Fetch yesterday's Statcast data, convert pitches → plate appearances, run the V5.3 zero-sum ELO engine and all 9 talent dimensions. Writes to <code className="bg-bg-elevated px-1 rounded text-xs">player_elo</code>, <code className="bg-bg-elevated px-1 rounded text-xs">daily_ohlc</code>, and the full talent table set.</li>
+          <li><strong>Team ELO</strong> — Extract game results from plate appearances, run the FiveThirtyEight-style game-level ELO update. Writes to <code className="bg-bg-elevated px-1 rounded text-xs">team_elo</code>.</li>
+          <li><strong>Pitcher stats cache</strong> — Fetch pitcher season stats from Fangraphs for fantasy projections.</li>
+          <li><strong>Schedule fetch</strong> — Pull this week's games from the MLB Stats API for upcoming matchup planning.</li>
+          <li><strong>Speed ELO seed</strong> — Derive batter speed talent from stolen base and caught stealing data.</li>
+          <li><strong>Player season stats</strong> — Refresh cumulative batting and pitching totals from the MLB Stats API. Writes to <code className="bg-bg-elevated px-1 rounded text-xs">player_season_stats</code>.</li>
+          <li><strong>Advanced stats</strong> — Fetch xWOBA from Baseball Savant and WRC+/WAR/xFIP−/SIERA from Fangraphs. Writes to <code className="bg-bg-elevated px-1 rounded text-xs">player_fangraphs_stats</code>.</li>
         </ol>
       </section>
 
@@ -324,35 +335,53 @@ function OverviewTab() {
             <thead>
               <tr className="border-b border-border-line">
                 <th className="px-3 py-2 text-left font-semibold">Table</th>
-                <th className="px-3 py-2 text-left font-semibold">Rows</th>
                 <th className="px-3 py-2 text-left font-semibold">Description</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-line">
               <tr>
                 <td className="px-3 py-2 font-mono">players</td>
-                <td className="px-3 py-2">1,469</td>
-                <td className="px-3 py-2">Player metadata (name, team, position)</td>
+                <td className="px-3 py-2">Player registry — name, team, position</td>
               </tr>
               <tr>
                 <td className="px-3 py-2 font-mono">plate_appearances</td>
-                <td className="px-3 py-2">183,092</td>
-                <td className="px-3 py-2">All PAs with delta_run_exp and context</td>
+                <td className="px-3 py-2">All PAs with delta_run_exp, base-out state, venue</td>
               </tr>
               <tr>
                 <td className="px-3 py-2 font-mono">player_elo</td>
-                <td className="px-3 py-2">1,469</td>
-                <td className="px-3 py-2">Current ELO + PA count per player</td>
+                <td className="px-3 py-2">Current ELO snapshot — batting_elo, pitching_elo, composite_elo, PA counts</td>
               </tr>
               <tr>
                 <td className="px-3 py-2 font-mono">elo_pa_detail</td>
-                <td className="px-3 py-2">183,092</td>
-                <td className="px-3 py-2">Per-PA ELO change records</td>
+                <td className="px-3 py-2">Per-PA ELO change records with before/after values</td>
               </tr>
               <tr>
                 <td className="px-3 py-2 font-mono">daily_ohlc</td>
-                <td className="px-3 py-2">69,125</td>
-                <td className="px-3 py-2">Daily OHLC candlestick data</td>
+                <td className="px-3 py-2">Daily OHLC candlestick data per player per role</td>
+              </tr>
+              <tr>
+                <td className="px-3 py-2 font-mono">team_elo</td>
+                <td className="px-3 py-2">Game-level team ELO records — before/after ELO, result, run differential</td>
+              </tr>
+              <tr>
+                <td className="px-3 py-2 font-mono">talent_player_current</td>
+                <td className="px-3 py-2">Per-player × dimension ELO snapshot (9 talent dimensions)</td>
+              </tr>
+              <tr>
+                <td className="px-3 py-2 font-mono">talent_pa_detail</td>
+                <td className="px-3 py-2">Per-PA × dimension ELO change records</td>
+              </tr>
+              <tr>
+                <td className="px-3 py-2 font-mono">talent_daily_ohlc</td>
+                <td className="px-3 py-2">Per-dimension daily OHLC candlestick data</td>
+              </tr>
+              <tr>
+                <td className="px-3 py-2 font-mono">player_season_stats</td>
+                <td className="px-3 py-2">Season totals from MLB Stats API — PA, H, HR, BB, K, IP, ER, saves, etc.</td>
+              </tr>
+              <tr>
+                <td className="px-3 py-2 font-mono">player_fangraphs_stats</td>
+                <td className="px-3 py-2">Advanced metrics — xWOBA, WRC+, WAR, xFIP−, SIERA</td>
               </tr>
             </tbody>
           </table>
@@ -550,7 +579,7 @@ function GeneralTab() {
           <p>&Sigma; (batting_elo &minus; 1500) + &Sigma; (pitching_elo &minus; 1500) = 0</p>
         </div>
         <p className="mt-2">
-          Verified from 2025 season data:
+          Example from a full MLB season (numbers recomputed each year):
         </p>
         <div className="bg-bg-elevated/40 rounded-lg p-4 font-mono text-sm space-y-1 mt-2">
           <p>Batter pool:  673 players &times; (+107.3 avg) = <strong>+72,232</strong> total ELO gained</p>
@@ -714,7 +743,7 @@ function TalentTab() {
           in each skill category.
         </p>
         <p>
-          <strong>Batter dimensions (4):</strong> Contact, Power, Discipline, Clutch
+          <strong>Batter dimensions (5):</strong> Contact, Power, Discipline, Speed, Clutch
         </p>
         <p>
           <strong>Pitcher dimensions (4):</strong> Stuff, BIP Suppression, Command, Clutch
@@ -741,27 +770,33 @@ function TalentTab() {
             <tbody className="divide-y divide-border-line">
               <tr>
                 <td className="px-3 py-2 font-semibold">Contact</td>
-                <td className="px-3 py-2">Ability to avoid strikeouts and make contact</td>
-                <td className="px-3 py-2">Single, Double, Triple</td>
-                <td className="px-3 py-2">Strikeout, Out</td>
+                <td className="px-3 py-2">Strikeout avoidance and weak BIP credit</td>
+                <td className="px-3 py-2">Single (0.3), Double (0.3), Triple (0.3), SAC (0.2), E (0.1)</td>
+                <td className="px-3 py-2">Strikeout (&minus;1.0), POPUP (&minus;0.2), Out (&minus;0.15), FC (&minus;0.1), GIDP (&minus;0.1)</td>
               </tr>
               <tr>
                 <td className="px-3 py-2 font-semibold">Power</td>
                 <td className="px-3 py-2">Extra-base hit and home run ability</td>
-                <td className="px-3 py-2">HR (1.0), Double (0.7)</td>
-                <td className="px-3 py-2">GIDP (-0.7), Out (-0.2)</td>
+                <td className="px-3 py-2">HR (1.0), Double (0.7), Triple (0.3)</td>
+                <td className="px-3 py-2">POPUP (&minus;0.8), GIDP (&minus;0.7), GROUNDOUT (&minus;0.4), Out (&minus;0.2), FC (&minus;0.2)</td>
               </tr>
               <tr>
                 <td className="px-3 py-2 font-semibold">Discipline</td>
                 <td className="px-3 py-2">Plate discipline and walk rate</td>
-                <td className="px-3 py-2">BB (1.0), HBP (0.8)</td>
-                <td className="px-3 py-2">&mdash;</td>
+                <td className="px-3 py-2">BB (1.0), HBP (0.8), IBB (0.6)</td>
+                <td className="px-3 py-2">Strikeout (&minus;0.5)</td>
+              </tr>
+              <tr>
+                <td className="px-3 py-2 font-semibold">Speed</td>
+                <td className="px-3 py-2">Baserunning — stolen bases and triples</td>
+                <td className="px-3 py-2">SB (1.0), Triple (0.5)</td>
+                <td className="px-3 py-2">CS (&minus;1.25), PKO (&minus;0.5)</td>
               </tr>
               <tr>
                 <td className="px-3 py-2 font-semibold">Clutch</td>
-                <td className="px-3 py-2">Performance in high-leverage situations (RISP)</td>
-                <td className="px-3 py-2">Hits with runners on 2B/3B</td>
-                <td className="px-3 py-2">Outs/K with runners on 2B/3B</td>
+                <td className="px-3 py-2">Performance in high-leverage situations (RISP / LI &gt; 2.0)</td>
+                <td className="px-3 py-2">HR (0.8), Triple (0.7), Double (0.6), Single (0.5), BB (0.4)</td>
+                <td className="px-3 py-2">GIDP (&minus;0.8), FC (&minus;0.4), Out (&minus;0.3), Strikeout (&minus;0.5)</td>
               </tr>
             </tbody>
           </table>
@@ -783,27 +818,27 @@ function TalentTab() {
             <tbody className="divide-y divide-border-line">
               <tr>
                 <td className="px-3 py-2 font-semibold">Stuff</td>
-                <td className="px-3 py-2">Strikeout-inducing ability (FIP-based)</td>
+                <td className="px-3 py-2">Pure strikeout ability — FIP-based, K and HR only</td>
                 <td className="px-3 py-2">Strikeout (1.0)</td>
-                <td className="px-3 py-2">HR (-0.8)</td>
+                <td className="px-3 py-2">HR (&minus;0.8)</td>
               </tr>
               <tr>
-                <td className="px-3 py-2 font-semibold">BIP Supp.</td>
-                <td className="px-3 py-2">Batted-ball suppression (BABIP)</td>
-                <td className="px-3 py-2">Out (0.4), GIDP (0.5)</td>
-                <td className="px-3 py-2">Single (-0.6), Double (-0.8), Triple (-0.9)</td>
+                <td className="px-3 py-2 font-semibold">BIP Suppression</td>
+                <td className="px-3 py-2">Batted-ball suppression — intentionally slow to filter BABIP noise (DIPS)</td>
+                <td className="px-3 py-2">GIDP (0.5), POPUP (0.6), Out (0.4), FC (0.3), GROUNDOUT (0.4)</td>
+                <td className="px-3 py-2">Triple (&minus;0.9), Double (&minus;0.8), Single (&minus;0.6), HR (&minus;0.5)</td>
               </tr>
               <tr>
                 <td className="px-3 py-2 font-semibold">Command</td>
-                <td className="px-3 py-2">Walk prevention and control</td>
-                <td className="px-3 py-2">Strikeout (0.3), Out (0.15)</td>
-                <td className="px-3 py-2">BB (-1.0), HBP (-0.8)</td>
+                <td className="px-3 py-2">Walk suppression and control</td>
+                <td className="px-3 py-2">Strikeout (0.3), Out (0.15), GIDP (0.15), FC (0.15), GROUNDOUT (0.15)</td>
+                <td className="px-3 py-2">BB (&minus;1.0), HBP (&minus;0.8), IBB (&minus;0.3), HR (&minus;0.3)</td>
               </tr>
               <tr>
                 <td className="px-3 py-2 font-semibold">Clutch</td>
-                <td className="px-3 py-2">Clutch pitching with runners on base</td>
-                <td className="px-3 py-2">Same events, amplified in RISP</td>
-                <td className="px-3 py-2">Same events, amplified in RISP</td>
+                <td className="px-3 py-2">High-leverage situation performance (RISP / LI &gt; 2.0)</td>
+                <td className="px-3 py-2">GIDP (0.8), Out (0.3), FC (0.4), POPUP (0.4), GROUNDOUT (0.3)</td>
+                <td className="px-3 py-2">BB (&minus;0.7), HR (&minus;0.8), Triple (&minus;0.7), Double (&minus;0.6), Single (&minus;0.5)</td>
               </tr>
             </tbody>
           </table>
@@ -856,8 +891,10 @@ function TalentTab() {
             BABIP noise, consistent with DIPS (Defense Independent Pitching Statistics) theory.
           </li>
           <li>
-            Speed dimension is currently <strong>disabled</strong> due to insufficient
-            Statcast stolen base data for reliable ELO convergence.
+            Speed ELO is sourced from <strong>two feeds</strong>: SB/CS from the MLB Stats API
+            box scores, and triples + ground-ball singles from Statcast. It uses a higher K-factor
+            (36.0) and lower reliability threshold (50 events) than other dimensions due to the
+            rarity of baserunning events.
           </li>
         </ul>
       </Accordion>
@@ -1025,7 +1062,7 @@ function MatchupEngineTab() {
           </table>
         </div>
         <p className="mt-2 text-sm text-text-secondary">
-          Values computed from 2025 MLB season talent_player_current table (673 batters, 873 pitchers).
+          Values calibrated from historical MLB season data. Distributions are stable year-over-year — the mean and std of each dimension change by less than 5% between seasons.
         </p>
       </Accordion>
 
@@ -1078,9 +1115,7 @@ function MatchupEngineTab() {
           <p>P(BIP) = 1.0 / Z</p>
         </div>
         <p className="mt-2">
-          The <strong>divisor of 3.5</strong> controls sensitivity: a z-diff of 3.5 (very extreme matchup)
-          shifts the logit by 1.0, which roughly doubles/halves the odds ratio. This keeps predictions
-          within realistic bounds even for extreme matchups.
+          The <strong>divisor of 3.5</strong> controls sensitivity: a z-diff of 3.5 shifts the logit by exactly 1.0, which changes the odds ratio by a factor of e ≈ 2.72×. This keeps predictions within realistic bounds — even an extreme matchup cannot push walk or strikeout probability to implausible extremes.
         </p>
         <p className="mt-2">
           At league average (z-diffs = 0), the softmax recovers the base rates:
@@ -1147,9 +1182,9 @@ function MatchupEngineTab() {
         </p>
       </Accordion>
 
-      <Accordion title="League Average Base Rates (2025 MLB)">
+      <Accordion title="League Average Base Rates">
         <p>
-          All base rates are computed from 183,092 plate appearances in the 2025 MLB season:
+          Base rates are calibrated from historical MLB plate appearance data. These are stable year-over-year and serve as the anchor for all probability predictions:
         </p>
         <div className="overflow-x-auto mt-2">
           <table className="w-full text-sm">
@@ -1370,27 +1405,262 @@ function MatchupEngineTab() {
   );
 }
 
+function FantasyTab() {
+  return (
+    <div className="space-y-4">
+      <Accordion title="What is the Fantasy Projection System?" defaultOpen>
+        <p>
+          The fantasy system computes <strong>expected fantasy points per plate appearance</strong> using
+          outcome probabilities from the Talent ELO matchup engine — the same 3-stage decision tree
+          used in the Matchup Predictor. Rather than stopping at probabilities, it multiplies each
+          outcome by its ESPN Head-to-Head fantasy point value to produce an expected score.
+        </p>
+        <p className="mt-2">
+          This gives every batter and pitcher a projection that is <strong>opponent-aware</strong>:
+          a power hitter facing an elite stuff pitcher will have a lower expected fantasy score than
+          the same hitter facing a weak command pitcher, even if their season averages are identical.
+        </p>
+      </Accordion>
+
+      <Accordion title="ESPN Head-to-Head Scoring Rules">
+        <p>Scoring categories are sourced directly from your ESPN H2H league configuration:</p>
+        <div className="grid md:grid-cols-2 gap-6 mt-3">
+          <div>
+            <p className="font-semibold text-text-primary mb-2">Batters</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border-line">
+                    <th className="px-3 py-2 text-left font-semibold">Event</th>
+                    <th className="px-3 py-2 text-right font-semibold">Pts</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-line">
+                  <tr><td className="px-3 py-2">Total Bases (1B=1, 2B=2, 3B=3, HR=4)</td><td className="px-3 py-2 text-right text-delta-up font-semibold">+1 / base</td></tr>
+                  <tr><td className="px-3 py-2">Run Scored</td><td className="px-3 py-2 text-right text-delta-up font-semibold">+1</td></tr>
+                  <tr><td className="px-3 py-2">RBI</td><td className="px-3 py-2 text-right text-delta-up font-semibold">+1</td></tr>
+                  <tr><td className="px-3 py-2">Walk (BB)</td><td className="px-3 py-2 text-right text-delta-up font-semibold">+1</td></tr>
+                  <tr><td className="px-3 py-2">Hit By Pitch</td><td className="px-3 py-2 text-right text-delta-up font-semibold">+1</td></tr>
+                  <tr><td className="px-3 py-2">Stolen Base</td><td className="px-3 py-2 text-right text-delta-up font-semibold">+1</td></tr>
+                  <tr><td className="px-3 py-2">Strikeout</td><td className="px-3 py-2 text-right text-delta-down font-semibold">−1</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <p className="font-semibold text-text-primary mb-2">Pitchers</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border-line">
+                    <th className="px-3 py-2 text-left font-semibold">Event</th>
+                    <th className="px-3 py-2 text-right font-semibold">Pts</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-line">
+                  <tr><td className="px-3 py-2">Inning Pitched</td><td className="px-3 py-2 text-right text-delta-up font-semibold">+3 / IP</td></tr>
+                  <tr><td className="px-3 py-2">Strikeout</td><td className="px-3 py-2 text-right text-delta-up font-semibold">+1</td></tr>
+                  <tr><td className="px-3 py-2">Win</td><td className="px-3 py-2 text-right text-delta-up font-semibold">+2</td></tr>
+                  <tr><td className="px-3 py-2">Save</td><td className="px-3 py-2 text-right text-delta-up font-semibold">+5</td></tr>
+                  <tr><td className="px-3 py-2">Hold</td><td className="px-3 py-2 text-right text-delta-up font-semibold">+2</td></tr>
+                  <tr><td className="px-3 py-2">Hit Allowed</td><td className="px-3 py-2 text-right text-delta-down font-semibold">−1</td></tr>
+                  <tr><td className="px-3 py-2">Earned Run</td><td className="px-3 py-2 text-right text-delta-down font-semibold">−2</td></tr>
+                  <tr><td className="px-3 py-2">Walk / HBP Issued</td><td className="px-3 py-2 text-right text-delta-down font-semibold">−1</td></tr>
+                  <tr><td className="px-3 py-2">Loss</td><td className="px-3 py-2 text-right text-delta-down font-semibold">−2</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </Accordion>
+
+      <Accordion title="Batter Expected Value Formula">
+        <p>
+          Expected fantasy points per plate appearance is the probability-weighted sum over all outcomes:
+        </p>
+        <div className="bg-bg-elevated/40 rounded-lg p-4 font-mono text-sm space-y-1 mt-3 overflow-x-auto">
+          <p className="text-text-secondary"># Total expected fantasy points per PA</p>
+          <p>E[FPts] = E[TB]×1 + E[R]×1 + E[RBI]×1 + E[BB]×1 + E[HBP]×1 + E[SB]×1 + E[SO]×(−1)</p>
+        </div>
+        <p className="font-semibold text-text-primary mt-4">Expected value derivations:</p>
+        <div className="bg-bg-elevated/40 rounded-lg p-4 font-mono text-sm space-y-2 mt-2 overflow-x-auto">
+          <p className="text-text-secondary"># Total bases from outcome probabilities</p>
+          <p>E[TB]  = P(1B)×1 + P(2B)×2 + P(3B)×3 + P(HR)×4</p>
+          <p className="text-text-secondary mt-2"># Runs: calibrated from historical R/TB ratio, plus speed adjustment</p>
+          <p>E[R]   = E[TB] × 0.40 + speed_z × 0.015</p>
+          <p className="text-text-secondary mt-2"># RBIs: calibrated from historical RBI/TB ratio</p>
+          <p>E[RBI] = E[TB] × 0.45</p>
+          <p className="text-text-secondary mt-2"># Stolen bases: speed talent × reach-base probability × pitcher SB-allow factor</p>
+          <p>E[SB]  = P(reach base) × sb_rate</p>
+          <p>{'  '}sb_rate      = 0.02 × speed_factor × pitcher_sb_factor</p>
+          <p>{'  '}speed_factor = max(0.1, 1.0 + speed_z × 0.6)</p>
+          <p>{'  '}speed_z      = (speed_elo − 1500) / 50</p>
+        </div>
+        <p className="mt-3 text-sm text-text-secondary">
+          The calibration constants (0.40 for R/TB, 0.45 for RBI/TB) are derived from historical MLB run-scoring data.
+          Speed ELO is a talent dimension seeded from stolen base and caught stealing rates — a batter one standard deviation above average in speed earns +0.015 additional expected runs per PA and a 60% multiplier on their base steal rate.
+        </p>
+      </Accordion>
+
+      <Accordion title="Pitcher Expected Value Formula">
+        <p>
+          Pitcher fantasy points are projected per game appearance, scaled by expected innings pitched:
+        </p>
+        <div className="bg-bg-elevated/40 rounded-lg p-4 font-mono text-sm space-y-1 mt-3 overflow-x-auto">
+          <p className="text-text-secondary"># Per-game expected fantasy points</p>
+          <p>E[FPts] = IP×3 + E[K]×1 + E[H]×(−1) + E[ER]×(−2) + E[BB]×(−1)</p>
+          <p>{'        '}+ P(W)×2 + P(L)×(−2) + P(SV)×5 + P(HLD)×2</p>
+        </div>
+        <p className="font-semibold text-text-primary mt-4">Per-inning rate derivations:</p>
+        <div className="bg-bg-elevated/40 rounded-lg p-4 font-mono text-sm space-y-2 mt-2 overflow-x-auto">
+          <p className="text-text-secondary"># Per-inning rates derived from Talent ELO dimensions</p>
+          <p>K rate    ← Pitcher Stuff ELO (higher Stuff → more strikeouts per BF)</p>
+          <p>BB rate   ← Pitcher Command ELO (higher Command → fewer walks per BF)</p>
+          <p>H rate    ← Pitcher BIP Suppression ELO (higher BIPS → fewer hits per BF)</p>
+          <p className="text-text-secondary mt-2"># Earned runs modeled from allowed baserunners</p>
+          <p>E[ER/IP] = (E[H/IP] + E[BB/IP] + E[HBP/IP]) × 0.30</p>
+        </div>
+        <p className="mt-3 text-sm text-text-secondary">
+          The 0.30 coefficient converts baserunners allowed per inning to earned runs — calibrated from historical LOB% and run-scoring conversion rates. Win/loss/save probabilities are computed from the pitcher's role (starter vs. reliever) and projected game performance.
+        </p>
+      </Accordion>
+
+      <Accordion title="Limitations">
+        <ul className="list-disc pl-5 space-y-2">
+          <li><strong>Opponent-agnostic leaderboard</strong> — The leaderboard ranking uses season-average fantasy point rate, not a specific opponent matchup.</li>
+          <li><strong>No lineup position</strong> — Batting order affects R and RBI opportunities but is not modeled.</li>
+          <li><strong>Fangraphs dependency</strong> — WRC+, WAR, xFIP−, and SIERA require Fangraphs API access; they show "—" when rate-limited.</li>
+          <li><strong>Static talent</strong> — Projections use current season talent ELO, not recent form or injury status.</li>
+        </ul>
+      </Accordion>
+    </div>
+  );
+}
+
+function TeamEloTab() {
+  return (
+    <div className="space-y-4">
+      <Accordion title="What is Team ELO?" defaultOpen>
+        <p>
+          Team ELO is a <strong>game-result-based</strong> rating system — it is not an average of
+          individual player ELOs. Each of the 30 MLB teams starts the season at <strong>1,500</strong>
+          and updates after every game based on the win/loss outcome and run differential.
+        </p>
+        <p className="mt-2">
+          The system follows the <strong>FiveThirtyEight MLB Elo methodology</strong> with three
+          enhancements: home field advantage, a margin-of-victory multiplier, and a preseason
+          regression toward projected win totals. The result is a single number per team that
+          tracks competitive strength throughout the season.
+        </p>
+      </Accordion>
+
+      <Accordion title="Win Probability Formula">
+        <p>
+          Before each game, the expected win probability for the home team is computed using a
+          logistic model anchored to the standard ELO divisor of 400:
+        </p>
+        <div className="bg-bg-elevated/40 rounded-lg p-4 font-mono text-sm mt-3 overflow-x-auto">
+          <p>P(home win) = 1 / (1 + 10^((away_elo − home_elo − HFA) / 400))</p>
+          <p className="text-text-secondary mt-1">{'  '}HFA = 24.0  # home field advantage in ELO points</p>
+        </div>
+        <p className="mt-3">
+          The <strong>+24 home field advantage</strong> effectively adds 24 ELO points to the home
+          team before computing win probability — equivalent to the historical MLB home win rate
+          of ~54%. The divisor of <strong>400</strong> is the standard ELO scaling parameter:
+          a 400-point gap implies roughly a 91% win probability for the higher-rated team.
+        </p>
+      </Accordion>
+
+      <Accordion title="ELO Update Formula">
+        <p>
+          After each game, both teams' ELOs update in a zero-sum fashion. The key innovation
+          over standard ELO is a <strong>margin-of-victory multiplier</strong> that rewards
+          dominant wins more than narrow ones:
+        </p>
+        <div className="bg-bg-elevated/40 rounded-lg p-4 font-mono text-sm space-y-2 mt-3 overflow-x-auto">
+          <p className="text-text-secondary"># Margin-of-victory multiplier (logarithmic — diminishing returns)</p>
+          <p>mov = ln(|run_diff| + 1)</p>
+          <p className="text-text-secondary mt-2"># ELO delta (zero-sum)</p>
+          <p>actual     = 1.0  # if home team won, else 0.0</p>
+          <p>home_delta = K × mov × (actual − P(home win))</p>
+          <p>away_delta = −home_delta</p>
+        </div>
+        <div className="overflow-x-auto mt-4">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border-line">
+                <th className="px-3 py-2 text-left font-semibold">Parameter</th>
+                <th className="px-3 py-2 text-left font-semibold">Value</th>
+                <th className="px-3 py-2 text-left font-semibold">Description</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-line">
+              <tr><td className="px-3 py-2 font-mono">K</td><td className="px-3 py-2">4.0</td><td className="px-3 py-2">ELO sensitivity per game</td></tr>
+              <tr><td className="px-3 py-2 font-mono">HFA</td><td className="px-3 py-2">24.0</td><td className="px-3 py-2">Home field advantage in ELO points</td></tr>
+              <tr><td className="px-3 py-2 font-mono">Divisor</td><td className="px-3 py-2">400</td><td className="px-3 py-2">Standard ELO logistic scaling constant</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-3 text-sm text-text-secondary">
+          The logarithmic MOV multiplier gives: win by 1 run → ln(2) ≈ 0.69×; win by 5 runs → ln(6) ≈ 1.79×; win by 10 runs → ln(11) ≈ 2.40×. This prevents blowout wins from producing unrealistically large ELO swings while still rewarding dominant performances.
+        </p>
+      </Accordion>
+
+      <Accordion title="Season Regression (FiveThirtyEight Method)">
+        <p>
+          At the start of each new season, team ELOs are partially reset to account for roster
+          turnover and off-season uncertainty. This follows the FiveThirtyEight approach:
+        </p>
+        <div className="bg-bg-elevated/40 rounded-lg p-4 font-mono text-sm space-y-2 mt-3 overflow-x-auto">
+          <p className="text-text-secondary"># Step 1: Regress 1/3 toward the mean</p>
+          <p>regressed_elo = prior_elo + 0.333 × (1500 − prior_elo)</p>
+          <p className="text-text-secondary mt-2"># Step 2: Blend with preseason projection (if available)</p>
+          <p>proj_elo  = 1500 + (projected_wins − 81) × 10</p>
+          <p>new_elo   = 0.67 × proj_elo + 0.33 × regressed_elo</p>
+          <p className="text-text-secondary mt-2"># Step 3: Re-center league to mean 1500 (zero-sum)</p>
+        </div>
+        <p className="mt-3">
+          The regression constant of <strong>1/3</strong> reflects that roughly one-third of the
+          prior season's performance is attributable to luck or context rather than true skill.
+          When projected win totals are available, they anchor the opening ELO at 10 points per
+          projected win above .500 — so a 95-win projection starts at 1,640 ELO.
+        </p>
+      </Accordion>
+
+      <Accordion title="Interpreting Team ELO">
+        <ul className="list-disc pl-5 space-y-2">
+          <li><strong>1,500</strong> = exact league average. Teams above this are above-average, below are below-average.</li>
+          <li><strong>~10 ELO points ≈ 1 additional expected win</strong> over a full season (from the projection calibration).</li>
+          <li>A <strong>100-point gap</strong> between two teams implies roughly a 64% win probability for the higher-rated team in a neutral-site game.</li>
+          <li>Team ELO is <strong>independent of player ELO</strong> — it measures team outcomes, not individual contribution. A team with several high-ELO players may still have a low team ELO if they underperform as a unit.</li>
+        </ul>
+      </Accordion>
+    </div>
+  );
+}
+
 function DeveloperTab() {
   return (
     <div className="space-y-4">
       <Accordion title="System Architecture" defaultOpen>
         <p>
-          The MLB ELO system follows a simple pipeline architecture:
+          The system is a 7-step daily pipeline that runs each morning and incrementally updates all data:
         </p>
-        <div className="bg-bg-elevated/40 rounded-lg p-4 font-mono text-sm overflow-x-auto">
-          <p>[Statcast Parquet] → ETL → [Supabase plate_appearances] → ELO Engine → [Supabase player_elo / daily_ohlc]</p>
+        <div className="bg-bg-elevated/40 rounded-lg p-4 font-mono text-sm overflow-x-auto mt-3">
+          <p>Statcast API → plate_appearances → ELO Engine V5.3 → player_elo + daily_ohlc</p>
+          <p className="text-text-secondary ml-44">↑ RE24 Baseline + Park Factors + 9 Talent Dimensions</p>
+          <p className="mt-1">MLB Stats API → player_season_stats</p>
+          <p>Baseball Savant + Fangraphs → player_fangraphs_stats</p>
+          <p>Game results → team_elo (FiveThirtyEight method)</p>
         </div>
-        <p>
-          The system uses a <strong>V5.3 Zero-Sum</strong> ELO engine, ported from a KBO
-          implementation with full feature parity:
+        <p className="mt-3">
+          The V5.3 zero-sum ELO engine produces: main ELO, 9 talent dimensions (4 batting, 4 pitching, 1 speed), and OHLC aggregations for every player who appeared that day.
         </p>
-        <ul className="list-disc pl-5 space-y-1">
-          <li>Single-dimension ELO (no separate talent/skill component)</li>
-          <li>Single season — no year-over-year normalization</li>
-          <li><strong>State normalization</strong> — adjusts for base-out situation (24 states)</li>
+        <ul className="list-disc pl-5 space-y-1 mt-2">
+          <li><strong>State normalization</strong> — adjusts for base-out situation (24 states: 8 base configs × 3 out counts)</li>
           <li><strong>Park factor</strong> — adjusts for venue scoring environment (30 stadiums)</li>
-          <li><strong>Field error handling</strong> — prevents unearned ELO credit on errors</li>
-          <li>Statcast delta_run_exp as the input metric</li>
+          <li><strong>Field error handling</strong> — zeroes batter ELO gain on fielding errors</li>
+          <li><strong>Incremental</strong> — each daily run processes only the prior day's games</li>
         </ul>
       </Accordion>
 
@@ -1454,29 +1724,17 @@ function DeveloperTab() {
         </p>
       </Accordion>
 
-      <Accordion title="Data Pipeline">
-        <p>
-          The data flows through three stages:
-        </p>
-        <h4 className="font-semibold mt-2">1. Raw Data (Statcast)</h4>
-        <ul className="list-disc pl-5 space-y-1">
-          <li>Source: MLB Statcast via Baseball Savant</li>
-          <li>Format: Parquet file (~711K pitches, 118 columns)</li>
-          <li>Coverage: Current season (2,428 games)</li>
-        </ul>
-        <h4 className="font-semibold mt-2">2. ETL (Pitch → PA)</h4>
-        <ul className="list-disc pl-5 space-y-1">
-          <li>Aggregate pitch-level data to plate appearance level</li>
-          <li>Extract: batter_id, pitcher_id, game_date, delta_run_exp</li>
-          <li>Result: ~183K plate appearances</li>
-        </ul>
-        <h4 className="font-semibold mt-2">3. ELO Engine (V5.3)</h4>
-        <ul className="list-disc pl-5 space-y-1">
-          <li>Load RE24 baseline (mean run value per base-out state) and park factors (30 venues)</li>
-          <li>Process PAs chronologically (sorted by game_date, at_bat_number)</li>
-          <li>Apply V5.3 formula: park adjustment → state normalization → zero-sum ELO</li>
-          <li>Output: per-PA ELO detail + daily OHLC aggregation</li>
-        </ul>
+      <Accordion title="Daily Pipeline Steps">
+        <p>All 7 steps are idempotent — safe to re-run if a step fails mid-way:</p>
+        <ol className="list-decimal pl-5 space-y-2 mt-2">
+          <li><strong>Player ELO + Talent ELO</strong> — Fetch Statcast data for the prior game day; convert pitches → plate appearances; run V5.3 zero-sum ELO + all 9 talent dimensions. Outputs: <code className="bg-bg-elevated px-1 rounded text-xs">player_elo</code>, <code className="bg-bg-elevated px-1 rounded text-xs">elo_pa_detail</code>, <code className="bg-bg-elevated px-1 rounded text-xs">daily_ohlc</code>, talent tables.</li>
+          <li><strong>Team ELO</strong> — Extract game results (home score, away score, venue) from plate_appearances; apply FiveThirtyEight update formula. Output: <code className="bg-bg-elevated px-1 rounded text-xs">team_elo</code>.</li>
+          <li><strong>Pitcher stats cache</strong> — Fetch pitcher season stats from Fangraphs enricher for use in fantasy projections.</li>
+          <li><strong>Schedule fetch</strong> — Pull this week's game schedule from MLB Stats API for upcoming matchup planning.</li>
+          <li><strong>Speed ELO seed</strong> — Derive batter speed talent from stolen base and caught stealing records; upsert into talent dimension.</li>
+          <li><strong>Player season stats</strong> — Fetch full-season batting and pitching totals from MLB Stats API. Output: <code className="bg-bg-elevated px-1 rounded text-xs">player_season_stats</code>.</li>
+          <li><strong>Advanced stats</strong> — Fetch xWOBA from Baseball Savant Statcast; WRC+, WAR, xFIP−, SIERA from Fangraphs (retries on 403). Output: <code className="bg-bg-elevated px-1 rounded text-xs">player_fangraphs_stats</code>.</li>
+        </ol>
       </Accordion>
 
       <Accordion title="OHLC Tracking">
@@ -1531,65 +1789,57 @@ function DeveloperTab() {
 
       <Accordion title="Database Schema">
         <p>
-          The system uses Supabase (PostgreSQL) with the following key tables:
+          The system uses Supabase (PostgreSQL) with 11 tables across the ELO, talent, team, and stats subsystems:
         </p>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto mt-3">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border-line">
                 <th className="px-3 py-2 text-left font-semibold">Table</th>
-                <th className="px-3 py-2 text-left font-semibold">Rows</th>
                 <th className="px-3 py-2 text-left font-semibold">Description</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-line">
-              <tr>
-                <td className="px-3 py-2 font-mono">players</td>
-                <td className="px-3 py-2">1,469</td>
-                <td className="px-3 py-2">Player metadata (name, team, position)</td>
-              </tr>
-              <tr>
-                <td className="px-3 py-2 font-mono">plate_appearances</td>
-                <td className="px-3 py-2">183,092</td>
-                <td className="px-3 py-2">All PAs with delta_run_exp</td>
-              </tr>
-              <tr>
-                <td className="px-3 py-2 font-mono">player_elo</td>
-                <td className="px-3 py-2">1,469</td>
-                <td className="px-3 py-2">Current ELO per player (batting_elo, pitching_elo, composite_elo)</td>
-              </tr>
-              <tr>
-                <td className="px-3 py-2 font-mono">elo_pa_detail</td>
-                <td className="px-3 py-2">183,092</td>
-                <td className="px-3 py-2">Per-PA ELO change records</td>
-              </tr>
-              <tr>
-                <td className="px-3 py-2 font-mono">daily_ohlc</td>
-                <td className="px-3 py-2">69,215</td>
-                <td className="px-3 py-2">Daily OHLC candlestick data per player per role (BATTING / PITCHING)</td>
-              </tr>
+              <tr><td className="px-3 py-2 font-mono">players</td><td className="px-3 py-2">Player registry — MLBAM ID, full name, team, position</td></tr>
+              <tr><td className="px-3 py-2 font-mono">plate_appearances</td><td className="px-3 py-2">All PAs with delta_run_exp, base-out state, venue, result type</td></tr>
+              <tr><td className="px-3 py-2 font-mono">player_elo</td><td className="px-3 py-2">Current ELO snapshot — batting_elo, pitching_elo, composite_elo, PA counts</td></tr>
+              <tr><td className="px-3 py-2 font-mono">elo_pa_detail</td><td className="px-3 py-2">Per-PA ELO change records with before/after values and physics modifiers</td></tr>
+              <tr><td className="px-3 py-2 font-mono">daily_ohlc</td><td className="px-3 py-2">Daily OHLC candlestick data — keyed by (player_id, game_date, role, elo_type)</td></tr>
+              <tr><td className="px-3 py-2 font-mono">team_elo</td><td className="px-3 py-2">Game-level team ELO — before/after ELO, home/away result, run differential</td></tr>
+              <tr><td className="px-3 py-2 font-mono">talent_player_current</td><td className="px-3 py-2">Per-player × dimension ELO snapshot (9 dimensions: Contact, Power, Discipline, Clutch, Stuff, BIP Supp., Command, Clutch, Speed)</td></tr>
+              <tr><td className="px-3 py-2 font-mono">talent_pa_detail</td><td className="px-3 py-2">Per-PA × dimension ELO change records</td></tr>
+              <tr><td className="px-3 py-2 font-mono">talent_daily_ohlc</td><td className="px-3 py-2">Per-dimension daily OHLC — keyed by (player_id, game_date, talent_type)</td></tr>
+              <tr><td className="px-3 py-2 font-mono">player_season_stats</td><td className="px-3 py-2">Season totals from MLB Stats API — PA, H, HR, BB, K, IP, ER, saves, holds, etc.</td></tr>
+              <tr><td className="px-3 py-2 font-mono">player_fangraphs_stats</td><td className="px-3 py-2">Advanced metrics — xWOBA, WRC+, WAR, xFIP−, SIERA (per player per season)</td></tr>
             </tbody>
           </table>
         </div>
       </Accordion>
 
-      <Accordion title="Frontend Stack">
-        <p>
-          This demo frontend is a static SPA that reads directly from Supabase:
-        </p>
-        <ul className="list-disc pl-5 space-y-1">
-          <li><strong>Vite + React + TypeScript</strong> — build toolchain</li>
-          <li><strong>Tailwind CSS</strong> — utility-first styling</li>
-          <li><strong>@supabase/supabase-js</strong> — direct DB queries (read-only)</li>
-          <li><strong>TanStack React Query</strong> — data fetching and caching</li>
-          <li><strong>Lightweight Charts</strong> — OHLC candlestick visualization</li>
-          <li><strong>React Router</strong> — client-side routing</li>
-          <li><strong>Lucide React</strong> — icons</li>
-        </ul>
-        <p>
-          No backend server is required — the frontend connects directly to Supabase
-          using a read-only anonymous key with Row Level Security (RLS).
-        </p>
+      <Accordion title="Tech Stack">
+        <div className="grid md:grid-cols-2 gap-6 mt-2">
+          <div>
+            <p className="font-semibold text-text-primary mb-2">Frontend (TypeScript)</p>
+            <ul className="list-disc pl-5 space-y-1 text-sm">
+              <li><strong>Vite + React + TypeScript</strong> — build toolchain</li>
+              <li><strong>Tailwind CSS</strong> — utility-first styling</li>
+              <li><strong>TanStack React Query</strong> — data fetching and caching</li>
+              <li><strong>Lightweight Charts</strong> — OHLC candlestick visualization</li>
+              <li><strong>React Router</strong> — client-side routing</li>
+              <li><strong>Lucide React</strong> — icons</li>
+            </ul>
+          </div>
+          <div>
+            <p className="font-semibold text-text-primary mb-2">Backend (Python)</p>
+            <ul className="list-disc pl-5 space-y-1 text-sm">
+              <li><strong>FastAPI</strong> — REST API serving all frontend data</li>
+              <li><strong>Supabase (PostgreSQL)</strong> — primary data store</li>
+              <li><strong>pandas</strong> — ETL and data processing</li>
+              <li><strong>pybaseball / requests</strong> — Statcast and MLB Stats API ingestion</li>
+              <li><strong>pytest</strong> — test suite covering ELO engine and pipeline</li>
+            </ul>
+          </div>
+        </div>
       </Accordion>
     </div>
   );
@@ -1657,6 +1907,28 @@ export default function Guide() {
           Matchup Engine
         </button>
         <button
+          onClick={() => setActiveTab('fantasy')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all ${
+            activeTab === 'fantasy'
+              ? 'bg-primary text-white'
+              : 'bg-bg-elevated text-text-secondary hover:bg-bg-elevated'
+          }`}
+        >
+          <Trophy className="w-4 h-4" />
+          Fantasy
+        </button>
+        <button
+          onClick={() => setActiveTab('teamelo')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all ${
+            activeTab === 'teamelo'
+              ? 'bg-primary text-white'
+              : 'bg-bg-elevated text-text-secondary hover:bg-bg-elevated'
+          }`}
+        >
+          <Shield className="w-4 h-4" />
+          Team ELO
+        </button>
+        <button
           onClick={() => setActiveTab('developer')}
           className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all ${
             activeTab === 'developer'
@@ -1671,7 +1943,7 @@ export default function Guide() {
 
       {/* Tab Content */}
       <div className="bg-bg-card rounded-lg shadow-modern border border-border-line p-6">
-        {activeTab === 'overview' ? <OverviewTab /> : activeTab === 'general' ? <GeneralTab /> : activeTab === 'talent' ? <TalentTab /> : activeTab === 'matchup' ? <MatchupEngineTab /> : <DeveloperTab />}
+        {activeTab === 'overview' ? <OverviewTab seasonYear={seasonYear} /> : activeTab === 'general' ? <GeneralTab /> : activeTab === 'talent' ? <TalentTab /> : activeTab === 'matchup' ? <MatchupEngineTab /> : activeTab === 'fantasy' ? <FantasyTab /> : activeTab === 'teamelo' ? <TeamEloTab /> : <DeveloperTab />}
       </div>
     </div>
   );

@@ -2,6 +2,8 @@
 
 A fantasy baseball tool that combines MLB ELO ratings with ESPN H2H points scoring to project weekly matchups. Built on FiveThirtyEight-style ELO systems for both individual players and teams, with a 9-dimensional talent model tracking power, discipline, speed, contact, and pitching skills.
 
+> Initial ELO framework based on [mlb-elo-demo-2025](https://github.com/mingksong/mlb-elo-demo-2025) by mingksong.
+
 ## What It Does
 
 - **Player ELO** — zero-sum ratings for every MLB batter and pitcher, updated per plate appearance

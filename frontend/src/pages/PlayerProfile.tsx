@@ -67,6 +67,13 @@ function StatsGrid({ stats, role }: { stats: { totalPa: number; avgDelta: number
   );
 }
 
+function formatIp(ip: number | undefined): string {
+  if (ip == null) return '–';
+  const full = Math.floor(ip);
+  const outs = Math.round((ip - full) * 3);
+  return outs === 0 ? `${full}` : `${full}.${outs}`;
+}
+
 function LastGamesTable({ games, role }: { games: PlayerGameEntry[]; role: RoleTab }) {
   if (games.length === 0) {
     return <p className="text-sm text-text-tertiary">No recent game data available.</p>;
@@ -83,7 +90,7 @@ function LastGamesTable({ games, role }: { games: PlayerGameEntry[]; role: RoleT
             <th className="pb-2 pr-4 font-medium text-right">Δ ELO</th>
             <th className="pb-2 pr-4 font-medium text-right">Pts</th>
             <th className="pb-2 font-medium text-right text-text-tertiary">
-              {role === 'BATTING' ? 'PA / TB / HR / BB / K' : 'IP / H / BB / K'}
+              {role === 'BATTING' ? 'PA / TB / HR / BB / K' : 'IP / H / ER / HR / BB / K'}
             </th>
           </tr>
         </thead>
@@ -95,7 +102,7 @@ function LastGamesTable({ games, role }: { games: PlayerGameEntry[]; role: RoleT
             const ptsSign = g.fantasyPoints > 0 ? '+' : '';
             const statsStr = role === 'BATTING'
               ? `${g.stats.pa ?? '–'} / ${g.stats.tb ?? '–'} / ${g.stats.hr ?? '–'} / ${g.stats.bb} / ${g.stats.k}`
-              : `${g.stats.ip ?? '–'} / ${g.stats.h ?? '–'} / ${g.stats.bb} / ${g.stats.k}`;
+              : `${formatIp(g.stats.ip)} / ${g.stats.h ?? '–'} / ${g.stats.er ?? '–'} / ${g.stats.hr ?? '–'} / ${g.stats.bb} / ${g.stats.k}`;
 
             return (
               <tr key={g.gamePk} className="border-b border-white/5 hover:bg-bg-elevated/60 transition-colors">
@@ -234,6 +241,10 @@ export default function PlayerProfile() {
   const { data: seasonMeta } = useSeasonMeta();
   const seasonYear = seasonMeta?.year ?? new Date().getFullYear();
 
+  // Must be called unconditionally before any early returns (Rules of Hooks)
+  const { data: statLineBatter } = usePlayerStatLine(playerId ?? '', 'batter', seasonYear);
+  const { data: statLinePitcher } = usePlayerStatLine(playerId ?? '', 'pitcher', seasonYear);
+
   if (eloLoading) {
     return (
       <div className="space-y-6">
@@ -292,18 +303,7 @@ export default function PlayerProfile() {
   // For delta, we use the role-filtered OHLC (loaded in RoleSection), so show 0 here
   const currentRole = isTwoWay ? activeRole : primaryRole;
 
-  const statLineRole = currentRole === 'PITCHING' ? 'pitcher' : 'batter';
-  const { data: statLine } = usePlayerStatLine(playerId ?? '', statLineRole, seasonYear);
-  // For two-way players also prefetch the other role so the tab switch is instant
-  const altRole = currentRole === 'PITCHING' ? 'batter' : 'pitcher';
-  const { data: statLineAlt } = usePlayerStatLine(
-    isTwoWay ? (playerId ?? '') : '',
-    altRole,
-    seasonYear,
-  );
-  const displayStatLine = isTwoWay
-    ? (activeRole === 'PITCHING' ? statLineAlt : statLine)
-    : statLine;
+  const displayStatLine = currentRole === 'PITCHING' ? statLinePitcher : statLineBatter;
 
   return (
     <div className="space-y-6">

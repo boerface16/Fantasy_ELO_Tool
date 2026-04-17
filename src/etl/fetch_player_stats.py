@@ -79,6 +79,8 @@ _EMPTY_ROW_TEMPLATE = {
     "outs_recorded": 0, "k": 0, "wins": 0, "losses": 0,
     "saves": 0, "holds": 0, "h_allowed": 0, "er": 0,
     "bb_allowed": 0, "hbp_allowed": 0, "bf": 0,
+    "hr_allowed": 0, "blown_saves": 0, "complete_games": 0,
+    "shutouts": 0, "balks": 0, "pickoffs": 0,
 }
 
 
@@ -129,6 +131,12 @@ def build_upsert_rows(season: int) -> list[dict]:
                 "bb_allowed": s.get("baseOnBalls", 0),
                 "hbp_allowed": s.get("hitByPitch", 0),
                 "bf": s.get("battersFaced", 0),
+                "hr_allowed": s.get("homeRuns", 0),
+                "blown_saves": s.get("blownSaves", 0),
+                "complete_games": s.get("completeGames", 0),
+                "shutouts": s.get("shutouts", 0),
+                "balks": s.get("balks", 0),
+                "pickoffs": s.get("pickoffs", 0),
             }
         )
 
@@ -137,9 +145,15 @@ def build_upsert_rows(season: int) -> list[dict]:
 
 def upsert_rows(sb, rows: list[dict], batch_size: int = 500) -> int:
     """Upsert rows into player_season_stats. Returns count of rows upserted."""
-    # Only upsert players that exist in our players table
-    existing_ids_resp = sb.table("players").select("player_id").execute()
-    existing_ids = {r["player_id"] for r in existing_ids_resp.data}
+    # Only upsert players that exist in our players table (paginate past 1000-row limit)
+    existing_ids: set[int] = set()
+    offset = 0
+    while True:
+        resp = sb.table("players").select("player_id").range(offset, offset + 999).execute()
+        existing_ids.update(r["player_id"] for r in resp.data or [])
+        if len(resp.data or []) < 1000:
+            break
+        offset += 1000
 
     filtered = [r for r in rows if r["player_id"] in existing_ids]
     skipped = len(rows) - len(filtered)

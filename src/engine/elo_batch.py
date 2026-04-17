@@ -155,6 +155,13 @@ class EloBatch:
             self._current_date = game_date_str
             self._current_year = int(game_date_str[:4])
 
+            # SB/CS/PKO rows are base-running events, not pitcher-batter
+            # confrontations. Skipping them prevents the runner's own ID being
+            # used as pitcher_id (set by backfill_speed_elo.py), which would
+            # incorrectly increment pitching_pa and flag the player as two-way.
+            if row.get('result_type') in ('SB', 'CS', 'PKO'):
+                continue
+
             batter_id = int(row['batter_id'])
             pitcher_id = int(row['pitcher_id'])
             self._active_player_ids.add(batter_id)

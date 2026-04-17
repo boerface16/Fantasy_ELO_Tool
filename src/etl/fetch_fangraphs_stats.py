@@ -142,8 +142,14 @@ def build_rows(season: int) -> dict[int, dict]:
 
 
 def upsert_rows(sb, rows: dict[int, dict], batch_size: int = 500) -> int:
-    existing_ids_resp = sb.table("players").select("player_id").execute()
-    existing_ids = {r["player_id"] for r in existing_ids_resp.data}
+    existing_ids: set[int] = set()
+    offset = 0
+    while True:
+        resp = sb.table("players").select("player_id").range(offset, offset + 999).execute()
+        existing_ids.update(r["player_id"] for r in resp.data or [])
+        if len(resp.data or []) < 1000:
+            break
+        offset += 1000
 
     filtered = [r for r in rows.values() if r["player_id"] in existing_ids]
     skipped = len(rows) - len(filtered)

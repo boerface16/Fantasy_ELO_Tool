@@ -4,7 +4,7 @@ Flow: roster + schedule → opponent resolution → ELO lookup → matchup predi
 """
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field as dc_field
 from datetime import date
 
 from src.fantasy.roster_parser import RosterEntry
@@ -83,6 +83,7 @@ class BatterProjection:
     total_points: float = 0.0
     points_per_game: float = 0.0
     composite_elo: float = 1500.0
+    eligible_positions: list[str] = dc_field(default_factory=list)
 
 
 @dataclass
@@ -101,8 +102,8 @@ class PitcherProjection:
 class WeeklyProjection:
     week_start: date
     week_end: date
-    batters: list[BatterProjection] = field(default_factory=list)
-    pitchers: list[PitcherProjection] = field(default_factory=list)
+    batters: list[BatterProjection] = dc_field(default_factory=list)
+    pitchers: list[PitcherProjection] = dc_field(default_factory=list)
     total_batter_points: float = 0.0
     total_pitcher_points: float = 0.0
     total_points: float = 0.0
@@ -111,65 +112,57 @@ class WeeklyProjection:
     optimal_total_points: float = 0.0
 
 
-# ESPN lineup structure
-LINEUP_SLOTS = {"C": 1, "1B": 1, "2B": 1, "SS": 1, "3B": 1, "OF": 3, "DH": 1}
-PITCHER_LINEUP_COUNT = 3  # min 1 SP
+# ESPN lineup structure (actual league settings)
+# Batters: C, 1B, 2B, SS, 3B, MI (2B/SS), CI (1B/3B), OF×5, UTIL (any)
+LINEUP_SLOTS = {"C": 1, "1B": 1, "2B": 1, "SS": 1, "3B": 1, "MI": 1, "CI": 1, "OF": 5, "UTIL": 1}
+PITCHER_LINEUP_COUNT = 9  # 9 pitchers per day, mix of SP and RP
 
 
 def compute_optimal_lineup(
     batters: list[BatterProjection],
     pitchers: list[PitcherProjection],
 ) -> tuple[float, float]:
-    """Compute optimal starting lineup points.
+    """Compute optimal starting lineup points using actual ESPN lineup slots.
 
-    Batters: best 9 (C, 1B, 2B, SS, 3B, OF×3, DH/UTIL).
-    Pitchers: best 3 with at least 1 SP.
+    Batters: C, 1B, 2B, SS, 3B, MI (2B or SS), CI (1B or 3B), OF×5, UTIL (any).
+    Pitchers: top 9 by projected points (mix of SP/RP).
 
-    Returns (optimal_batter_pts, optimal_pitcher_pts).
+    Uses eligible_positions on each BatterProjection for flex-slot eligibility.
+    Falls back to slot field if eligible_positions is empty (older parsed rosters).
     """
-    # --- Batters: greedy slot assignment ---
     sorted_batters = sorted(batters, key=lambda b: b.total_points, reverse=True)
-    remaining = {"C": 1, "1B": 1, "2B": 1, "SS": 1, "3B": 1, "OF": 3}
-    util_remaining = 1  # DH/UTIL — any batter
+    used: set[int] = set()
     selected_batter_pts = 0.0
-    used = set()
 
-    # First pass: fill positional slots
-    for b in sorted_batters:
-        slot = b.slot
-        if slot in remaining and remaining[slot] > 0 and id(b) not in used:
-            remaining[slot] -= 1
-            selected_batter_pts += b.total_points
-            used.add(id(b))
+    def _eligible(b: BatterProjection) -> list[str]:
+        """Return the positions to use for eligibility checks."""
+        return b.eligible_positions if b.eligible_positions else [b.slot]
 
-    # Second pass: fill UTIL with best remaining
-    for b in sorted_batters:
-        if util_remaining <= 0:
-            break
-        if id(b) not in used:
-            selected_batter_pts += b.total_points
-            used.add(id(b))
-            util_remaining -= 1
+    def _fill(n: int, qualifies) -> None:
+        nonlocal selected_batter_pts
+        count = 0
+        for b in sorted_batters:
+            if count >= n:
+                break
+            if id(b) not in used and qualifies(_eligible(b)):
+                used.add(id(b))
+                selected_batter_pts += b.total_points
+                count += 1
 
-    # --- Pitchers: best 3 with at least 1 SP ---
+    # Fill positional slots first (most restrictive → least restrictive)
+    _fill(1, lambda pos: "C" in pos)
+    _fill(1, lambda pos: "1B" in pos)
+    _fill(1, lambda pos: "2B" in pos)
+    _fill(1, lambda pos: "SS" in pos)
+    _fill(1, lambda pos: "3B" in pos)
+    _fill(1, lambda pos: "2B" in pos or "SS" in pos)   # MI
+    _fill(1, lambda pos: "1B" in pos or "3B" in pos)   # CI
+    _fill(5, lambda pos: "OF" in pos)                   # OF × 5
+    _fill(1, lambda pos: True)                          # UTIL — any remaining batter
+
+    # Pitchers: top 9 by total weekly projected points
     sorted_pitchers = sorted(pitchers, key=lambda p: p.total_points, reverse=True)
-    selected_pitcher_pts = 0.0
-
-    # Check if any SP exists
-    sp_list = [p for p in sorted_pitchers if p.slot == 'SP']
-    rp_list = [p for p in sorted_pitchers if p.slot != 'SP']
-
-    if sp_list:
-        # Take best SP first, then fill remaining 2 from all pitchers
-        best_sp = sp_list[0]
-        selected_pitcher_pts += best_sp.total_points
-        remaining_pitchers = [p for p in sorted_pitchers if p is not best_sp]
-        for p in remaining_pitchers[:PITCHER_LINEUP_COUNT - 1]:
-            selected_pitcher_pts += p.total_points
-    else:
-        # No SP — just take top 3
-        for p in sorted_pitchers[:PITCHER_LINEUP_COUNT]:
-            selected_pitcher_pts += p.total_points
+    selected_pitcher_pts = sum(p.total_points for p in sorted_pitchers[:PITCHER_LINEUP_COUNT])
 
     return selected_batter_pts, selected_pitcher_pts
 
@@ -358,10 +351,12 @@ def project_week(
         total_pts = sum(g.expected_points for g in games)
         ppg = total_pts / len(games) if games else 0.0
 
+        eligible = player_matchups[0].eligible_positions if player_matchups else []
         batters.append(BatterProjection(
             player_id=batter_player_id, player_name=name, team=team, slot=slot,
             games=games, total_points=total_pts, points_per_game=ppg,
             composite_elo=batter_composite,
+            eligible_positions=eligible,
         ))
 
     # -------------------------------------------------------------------------

@@ -121,8 +121,8 @@ class TalentBatch:
             self._active_player_ids.add(batter_id)
             self._active_player_ids.add(pitcher_id)
 
-            # --- Baserunning events (SB/CS): update runner's speed ELO only ---
-            if result_type in ('SB', 'CS'):
+            # --- Baserunning events (SB/CS/PKO): update runner's speed ELO only ---
+            if result_type in ('SB', 'CS', 'PKO'):
                 runner_id_val = row.get('runner_id')
                 if pd.isna(runner_id_val) or runner_id_val is None:
                     continue  # can't attribute — skip

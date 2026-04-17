@@ -111,8 +111,10 @@ async def talent_leaderboard(
     player_role: str = Query(..., alias="role"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    min_pa: int = Query(20, ge=0),
+    min_pa: int = Query(None, ge=0),
 ):
+    if min_pa is None:
+        min_pa = 5 if talent_type == "speed" else 20
     sb = get_supabase()
     offset = (page - 1) * limit
 

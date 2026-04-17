@@ -894,7 +894,9 @@ function TalentTab() {
             Speed ELO is sourced from <strong>two feeds</strong>: SB/CS from the MLB Stats API
             box scores, and triples + ground-ball singles from Statcast. It uses a higher K-factor
             (36.0) and lower reliability threshold (50 events) than other dimensions due to the
-            rarity of baserunning events.
+            rarity of baserunning events. Season ELO <strong>resets each year</strong> — everyone
+            starts at 1500, except players who stole more than 25 bases the prior season, who start
+            at <strong>1550</strong>.
           </li>
         </ul>
       </Accordion>
@@ -1498,7 +1500,7 @@ function FantasyTab() {
         </div>
         <p className="mt-3 text-sm text-text-secondary">
           The calibration constants (0.40 for R/TB, 0.45 for RBI/TB) are derived from historical MLB run-scoring data.
-          Speed ELO is a talent dimension seeded from stolen base and caught stealing rates — a batter one standard deviation above average in speed earns +0.015 additional expected runs per PA and a 60% multiplier on their base steal rate.
+          Speed ELO is a talent dimension seeded from stolen base and caught stealing rates — a batter one standard deviation above average in speed earns +0.015 additional expected runs per PA and a 60% multiplier on their base steal rate. Season ELO resets to 1500 at the start of each season; players with more than 25 stolen bases the prior season begin at 1550.
         </p>
       </Accordion>
 

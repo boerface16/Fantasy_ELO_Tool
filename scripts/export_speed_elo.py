@@ -128,6 +128,104 @@ def _elo_driver(sb: int, cs: int, three_b: int, pa_events: list[dict], elo_delta
     return " + ".join(drivers)
 
 
+def generate_chart(
+    name: str,
+    player_id: int,
+    season: int,
+    ohlc_by_date: dict,
+    pa_detail: list[dict],
+    current: dict | None,
+    out_path: str,
+) -> None:
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from matplotlib.lines import Line2D
+    except ImportError:
+        print("matplotlib not installed — skipping chart (pip install matplotlib)")
+        return
+
+    from datetime import datetime as dt
+
+    dates_sorted = sorted(ohlc_by_date.keys())
+    if not dates_sorted:
+        print("No OHLC data — skipping chart")
+        return
+
+    xs = [dt.fromisoformat(d) for d in dates_sorted]
+    closes = [ohlc_by_date[d]["close_elo"] for d in dates_sorted]
+    highs  = [ohlc_by_date[d]["high_elo"]  for d in dates_sorted]
+    lows   = [ohlc_by_date[d]["low_elo"]   for d in dates_sorted]
+
+    EVENT_STYLES = {
+        "SB":     {"color": "#22c55e", "marker": "^", "label": "SB (+)"},
+        "CS":     {"color": "#ef4444", "marker": "v", "label": "CS (−)"},
+        "Triple": {"color": "#60a5fa", "marker": "D", "label": "3B (+)"},
+        "PKO":    {"color": "#f97316", "marker": "v", "label": "PKO (−)"},
+    }
+
+    fig, ax = plt.subplots(figsize=(18, 7))
+    fig.patch.set_facecolor("#0f172a")
+    ax.set_facecolor("#1e293b")
+
+    # Daily high/low range bars
+    for x, h, lo in zip(xs, highs, lows):
+        ax.plot([x, x], [lo, h], color="#475569", linewidth=1.5, alpha=0.45, zorder=1)
+
+    # ELO progression line
+    ax.plot(xs, closes, color="#818cf8", linewidth=2, zorder=3)
+
+    # Reference lines
+    ax.axhline(1500, color="#64748b", linestyle="--", linewidth=1, alpha=0.7)
+    ax.axhline(1550, color="#a3e635", linestyle=":",  linewidth=1, alpha=0.6)
+
+    # Individual event markers — one point per PA event
+    for ev in pa_detail:
+        rt = ev.get("result_type", "")
+        style = EVENT_STYLES.get(rt)
+        if not style or not ev.get("game_date") or ev.get("elo_after") is None:
+            continue
+        try:
+            ex = dt.fromisoformat(ev["game_date"])
+        except ValueError:
+            continue
+        ax.scatter(ex, ev["elo_after"], color=style["color"], marker=style["marker"],
+                   s=65, zorder=5, alpha=0.92, linewidths=0)
+
+    # Legend
+    legend_handles = [
+        Line2D([0], [0], color="#818cf8",  linewidth=2,          label="Speed ELO (close)"),
+        Line2D([0], [0], color="#475569",  linewidth=2,          label="Daily high/low"),
+        Line2D([0], [0], color="#64748b",  linestyle="--",       label="Baseline (1500)"),
+        Line2D([0], [0], color="#a3e635",  linestyle=":",        label="Elite start (1550)"),
+    ] + [
+        Line2D([0], [0], color=s["color"], marker=s["marker"],
+               markersize=8, linestyle="None", label=s["label"])
+        for s in EVENT_STYLES.values()
+    ]
+    ax.legend(handles=legend_handles, facecolor="#1e293b", edgecolor="#334155",
+              labelcolor="white", fontsize=9, loc="upper left")
+
+    final_elo    = current["season_elo"]    if current else (closes[-1] if closes else 1500.0)
+    event_count  = current["event_count"]   if current else len(pa_detail)
+    ax.set_title(
+        f"{name}  ·  Speed ELO  ·  {season}  ·  Current: {final_elo:.1f}  ·  {event_count} events",
+        color="white", fontsize=13, pad=12,
+    )
+    ax.set_xlabel("Date",       color="#94a3b8", fontsize=10)
+    ax.set_ylabel("Speed ELO",  color="#94a3b8", fontsize=10)
+    ax.tick_params(colors="#94a3b8")
+    for spine in ax.spines.values():
+        spine.set_edgecolor("#334155")
+
+    plt.tight_layout()
+    chart_path = out_path.replace(".csv", ".png")
+    plt.savefig(chart_path, dpi=150, bbox_inches="tight", facecolor=fig.get_facecolor())
+    plt.close()
+    print(f"Chart:        {chart_path}")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--player", type=int, default=665862)
@@ -142,7 +240,10 @@ def main():
     current = fetch_current(sb, args.player)
     ohlc_by_date = fetch_ohlc(sb, args.player, args.season)
     game_log = fetch_game_log(args.player, args.season)
-    pa_detail = fetch_pa_detail(sb, args.player)
+    pa_detail = [
+        r for r in fetch_pa_detail(sb, args.player)
+        if r.get("game_date", "").startswith(str(args.season))
+    ]
 
     # Index PA detail by game_date for inline annotation
     pa_by_date: dict[str, list[dict]] = {}
@@ -239,6 +340,8 @@ def main():
     print(f"OHLC rows:    {len(ohlc_by_date)}")
     print(f"PA detail:    {len(pa_detail)} tracked events")
     print(f"\nExported to:  {out_path}")
+
+    generate_chart(name, args.player, args.season, ohlc_by_date, pa_detail, current, out_path)
 
 
 if __name__ == "__main__":

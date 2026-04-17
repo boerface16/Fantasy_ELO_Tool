@@ -140,12 +140,25 @@ def reset_speed_data(client, seasons: list[int]):
                 break
             offset += 1000
 
-        batch_size = 20
-        for i in range(0, len(all_pa_ids), batch_size):
+        # Batch size 500 keeps request count well under the HTTP/2 stream limit (~10k).
+        # Reconnect every 900 batches as a safety net in case of very large seasons.
+        batch_size = 500
+        for idx, i in enumerate(range(0, len(all_pa_ids), batch_size)):
+            if idx > 0 and idx % 900 == 0:
+                client = get_supabase()
             client.table("talent_pa_detail").delete().in_(
                 "pa_id", all_pa_ids[i:i + batch_size]
             ).eq("talent_type", "speed").execute()
         logger.info(f"  [{season}] Deleted speed talent_pa_detail rows (checked {len(all_pa_ids)} pa_ids)")
+
+        # elo_pa_detail also has a FK to plate_appearances — must delete before plate_appearances
+        for idx, i in enumerate(range(0, len(all_pa_ids), batch_size)):
+            if idx > 0 and idx % 900 == 0:
+                client = get_supabase()
+            client.table("elo_pa_detail").delete().in_(
+                "pa_id", all_pa_ids[i:i + batch_size]
+            ).execute()
+        logger.info(f"  [{season}] Deleted elo_pa_detail rows (checked {len(all_pa_ids)} pa_ids)")
 
         client.table("plate_appearances").delete().eq("season_year", season).in_(
             "result_type", ["SB", "CS", "PKO"]
@@ -209,12 +222,22 @@ def run_backfill(client, seasons: list[int], dry_run: bool,
 
     # In-memory state: {player_id: [elo, event_count]}
     player_state: dict[int, list] = {}
+    player_last_season: dict[int, int] = {}   # last season each player was active
+    loop_season: int = seasons[0]
+    season_sb: dict[int, int] = {}            # SB counts accumulating for loop_season
+    prev_season_sb: dict[int, int] = {}       # SB counts from the completed season
 
     total_sb = total_cs = total_3b = 0
 
     for date_str in dates:
         target = date.fromisoformat(date_str)
         season_year = int(date_str[:4])
+
+        if season_year != loop_season:
+            prev_season_sb = season_sb.copy()
+            season_sb = {}
+            loop_season = season_year
+            logger.info(f"  Season boundary → {season_year} (prev season SB tracked for {len(prev_season_sb)} players)")
         pa_records = []
         detail_records = []
         ohlc_by_player: dict[int, dict] = {}
@@ -228,6 +251,11 @@ def run_backfill(client, seasons: list[int], dry_run: bool,
                 continue
             if pid not in player_state:
                 player_state[pid] = [1500.0, 0]
+                player_last_season[pid] = season_year
+            elif player_last_season.get(pid) != season_year:
+                reset_elo = 1550.0 if prev_season_sb.get(pid, 0) > 25 else 1500.0
+                player_state[pid] = [reset_elo, 0]
+                player_last_season[pid] = season_year
             elo, cnt = player_state[pid]
             d = _delta(ev["speed_type"], cnt)
             if d == 0:
@@ -261,6 +289,11 @@ def run_backfill(client, seasons: list[int], dry_run: bool,
                 continue
             if pid not in player_state:
                 player_state[pid] = [1500.0, 0]
+                player_last_season[pid] = season_year
+            elif player_last_season.get(pid) != season_year:
+                reset_elo = 1550.0 if prev_season_sb.get(pid, 0) > 25 else 1500.0
+                player_state[pid] = [reset_elo, 0]
+                player_last_season[pid] = season_year
             elo, cnt = player_state[pid]
             game_pk = ev["game_pk"]
 
@@ -290,6 +323,10 @@ def run_backfill(client, seasons: list[int], dry_run: bool,
                 elo += d
                 cnt += 1
                 total_sb += 1
+                season_sb[pid] = season_sb.get(pid, 0) + 1
+                ohlc_by_player[pid]["high"] = max(ohlc_by_player[pid]["high"], elo)
+                ohlc_by_player[pid]["low"] = min(ohlc_by_player[pid]["low"], elo)
+                ohlc_by_player[pid]["close"] = elo
 
             for _ in range(ev["cs"]):
                 d = _delta("CS", cnt)
@@ -313,11 +350,11 @@ def run_backfill(client, seasons: list[int], dry_run: bool,
                 elo += d
                 cnt += 1
                 total_cs += 1
+                ohlc_by_player[pid]["high"] = max(ohlc_by_player[pid]["high"], elo)
+                ohlc_by_player[pid]["low"] = min(ohlc_by_player[pid]["low"], elo)
+                ohlc_by_player[pid]["close"] = elo
 
             player_state[pid] = [elo, cnt]
-            ohlc_by_player[pid]["high"] = max(ohlc_by_player[pid]["high"], elo)
-            ohlc_by_player[pid]["low"] = min(ohlc_by_player[pid]["low"], elo)
-            ohlc_by_player[pid]["close"] = elo
 
         # ── Write to DB ───────────────────────────────────────────────────────
         if not dry_run:
@@ -355,6 +392,14 @@ def run_backfill(client, seasons: list[int], dry_run: bool,
             f"  {date_str}: {sc_count} Statcast events, {mlb_count} MLB API player-games"
             + (" [DRY RUN]" if dry_run else "")
         )
+
+    # Players active in a prior season but absent from the current season were
+    # never reset by the per-date boundary check. Apply the reset now so
+    # talent_player_current reflects the correct current-season starting ELO.
+    for pid in list(player_state.keys()):
+        if player_last_season.get(pid) != loop_season:
+            reset_elo = 1550.0 if prev_season_sb.get(pid, 0) > 25 else 1500.0
+            player_state[pid] = [reset_elo, 0]
 
     # ── Final talent_player_current update ───────────────────────────────────
     if not dry_run and player_state:

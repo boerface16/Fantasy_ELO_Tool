@@ -125,7 +125,7 @@ Every day at **8:00 AM EST**, GitHub automatically runs the daily update. You do
 - Team ELO ratings
 - Weekly schedule and probable pitchers
 - Player stat projections from FanGraphs
-- Speed ELO ratings (SB/CS totals from MLB Stats API)
+- Speed ELO ratings (SB/CS totals from MLB Stats API; resets to 1500 each season, or 1550 for players with >25 SB the prior season)
 
 ### How to check if it ran
 

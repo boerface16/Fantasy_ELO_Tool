@@ -131,6 +131,8 @@ Speed uses a **fixed expected value of 0.5** (no pitcher matchup). The CS penalt
 
 **No pitcher matchup.**
 
+**Seasonal reset:** At the start of each season, `season_elo` resets to **1500** for all batters. Players who stole **more than 25 bases** in the prior season begin at **1550** instead, reflecting demonstrated above-average baserunning ability.
+
 ---
 
 ### Clutch (Batter)
@@ -328,7 +330,7 @@ Projection-to-dimension mapping:
 | Contact | 1 − K% |
 | Power | ISO |
 | Discipline | BB% |
-| Speed | SB per 600 PA |
+| Speed | 1500 baseline; 1550 if >25 SB prior season |
 | Clutch | 1500 (no projection) |
 
 ---

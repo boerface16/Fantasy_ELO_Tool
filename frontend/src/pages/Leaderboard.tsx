@@ -3,26 +3,49 @@ import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from 'lucide-rea
 import { useLeaderboard, useSeasonMeta, useFantasyLeaderboard } from '../hooks/useElo';
 import LeaderboardTable from '../components/leaderboard/LeaderboardTable';
 import FantasyLeaderboardTable from '../components/leaderboard/FantasyLeaderboardTable';
+import { MLB_TEAMS } from '../constants/mlb';
 
 type PositionTab = 'batter' | 'pitcher' | 'batter-fantasy' | 'pitcher-fantasy';
+type TimePeriod = 'season' | 'current_season' | 'last_30' | 'last_7';
 
 const ESTIMATED_TOTAL = { pitcher: 580, batter: 540, 'batter-fantasy': 540, 'pitcher-fantasy': 580 };
+const TIME_PERIOD_LABELS: Record<TimePeriod, string> = {
+  season: 'Overall ELO',
+  current_season: 'This Season',
+  last_30: 'Last 30 Days',
+  last_7: 'Last 7 Days',
+};
 
 export default function Leaderboard() {
   const [position, setPosition] = useState<PositionTab>('batter');
   const [page, setPage] = useState(1);
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>('season');
+  const [teamFilter, setTeamFilter] = useState('');
   const limit = 20;
+
+  const { data: seasonMeta } = useSeasonMeta();
 
   const isFantasyTab = position === 'batter-fantasy' || position === 'pitcher-fantasy';
   const fantasyRole = position === 'pitcher-fantasy' ? 'pitcher' : 'batter';
   const eloPosition = isFantasyTab ? 'batter' : position;
+  const days = timePeriod === 'last_7' ? 7 : timePeriod === 'last_30' ? 30 : undefined;
+  const fromDate = timePeriod === 'current_season' ? `${seasonMeta?.year ?? 2026}-01-01` : undefined;
+  const isDelta = !!days || !!fromDate;
 
-  const { data: players = [], isLoading } = useLeaderboard({ position: eloPosition, page, limit });
+  const { data: players = [], isLoading } = useLeaderboard({
+    position: eloPosition,
+    page,
+    limit,
+    team: teamFilter || undefined,
+    days,
+    from_date: fromDate,
+  });
   const { data: fantasyPlayers = [], isLoading: fantasyLoading } = useFantasyLeaderboard(fantasyRole, 2026, page, limit);
-  const { data: seasonMeta } = useSeasonMeta();
 
   useEffect(() => {
     setPage(1);
+    setTimePeriod('season');
+    setTeamFilter('');
   }, [position]);
 
   const activeData = isFantasyTab ? fantasyPlayers : players;
@@ -69,6 +92,33 @@ export default function Leaderboard() {
         ))}
       </div>
 
+      {/* Filters */}
+      {!isFantasyTab && (
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1">
+            {(['season', 'current_season', 'last_30', 'last_7'] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => { setTimePeriod(p); setPage(1); }}
+                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                  timePeriod === p ? 'bg-primary text-white' : 'bg-bg-elevated text-text-secondary hover:bg-bg-elevated'
+                }`}
+              >
+                {TIME_PERIOD_LABELS[p]}
+              </button>
+            ))}
+          </div>
+          <select
+            value={teamFilter}
+            onChange={(e) => { setTeamFilter(e.target.value); setPage(1); }}
+            className="px-3 py-1.5 rounded-lg text-sm bg-bg-elevated text-text-primary border border-border-line"
+          >
+            <option value="">All Teams</option>
+            {MLB_TEAMS.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+      )}
+
       {/* Table */}
       {isFantasyTab ? (
         <FantasyLeaderboardTable
@@ -83,6 +133,7 @@ export default function Leaderboard() {
           isLoading={isLoading}
           startRank={(page - 1) * limit + 1}
           position={position as 'batter' | 'pitcher'}
+          isDelta={isDelta}
         />
       )}
 

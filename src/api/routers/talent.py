@@ -112,13 +112,59 @@ async def talent_leaderboard(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     min_pa: int = Query(None, ge=0),
+    team: str = Query(None),
+    days: int = Query(None, ge=1, le=365),
+    from_date: str = Query(None),
 ):
     if min_pa is None:
         min_pa = 5 if talent_type == "speed" else 20
     sb = get_supabase()
     offset = (page - 1) * limit
 
-    resp = (
+    if days is not None or from_date is not None:
+        from datetime import datetime, timedelta
+        from collections import defaultdict
+        if days is not None:
+            start_date = (datetime.now() - timedelta(days=days)).date().isoformat()
+        else:
+            start_date = from_date
+
+        query = (
+            sb.table("talent_daily_ohlc")
+            .select("player_id, open_elo, close_elo, total_pa, players!inner(full_name, team, position)")
+            .gte("game_date", start_date)
+            .eq("talent_type", talent_type)
+            .limit(10000)
+        )
+        if team:
+            query = query.eq("players.team", team)
+        resp = query.execute()
+
+        agg: dict = defaultdict(lambda: {"elo_delta": 0.0, "pa_count": 0})
+        player_info: dict = {}
+        for row in resp.data or []:
+            pid = row["player_id"]
+            agg[pid]["elo_delta"] += (row["close_elo"] or 0.0) - (row["open_elo"] or 0.0)
+            agg[pid]["pa_count"] += row.get("total_pa") or 0
+            player_info[pid] = row["players"]
+
+        sorted_results = sorted(agg.items(), key=lambda x: x[1]["elo_delta"], reverse=True)
+        page_slice = sorted_results[offset: offset + limit]
+        return [
+            {
+                "player_id": pid,
+                "season_elo": None,
+                "career_elo": None,
+                "elo_delta": round(data["elo_delta"], 1),
+                "pa_count": data["pa_count"],
+                "full_name": player_info[pid]["full_name"],
+                "team": player_info[pid]["team"],
+                "position": player_info[pid]["position"],
+            }
+            for pid, data in page_slice
+        ]
+
+    query = (
         sb.table("talent_player_current")
         .select("player_id, season_elo, career_elo, pa_count, players!inner(full_name, team, position)")
         .eq("talent_type", talent_type)
@@ -127,8 +173,10 @@ async def talent_leaderboard(
         .not_.is_("season_elo", "null")
         .order("season_elo", desc=True)
         .range(offset, offset + limit - 1)
-        .execute()
     )
+    if team:
+        query = query.eq("players.team", team)
+    resp = query.execute()
 
     return [
         {

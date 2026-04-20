@@ -252,21 +252,78 @@ async def leaderboard(
     position: str = Query("batter"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
+    team: str = Query(None),
+    days: int = Query(None, ge=1, le=365),
+    from_date: str = Query(None),
 ):
     sb = get_supabase()
     offset = (page - 1) * limit
 
+    if days is not None or from_date is not None:
+        from datetime import datetime, timedelta
+        from collections import defaultdict
+        if days is not None:
+            start_date = (datetime.now() - timedelta(days=days)).date().isoformat()
+        else:
+            start_date = from_date
+        ohlc_role = "PITCHING" if position == "pitcher" else "BATTING"
+
+        query = (
+            sb.table("daily_ohlc")
+            .select("player_id, delta, total_pa, players!inner(full_name, team, position)")
+            .gte("game_date", start_date)
+            .eq("elo_type", "SEASON")
+            .eq("role", ohlc_role)
+            .limit(10000)
+        )
+        if team:
+            query = query.eq("players.team", team)
+        resp = query.execute()
+
+        agg: dict = defaultdict(lambda: {"elo_delta": 0.0, "pa_count": 0})
+        player_info: dict = {}
+        for row in resp.data or []:
+            pid = row["player_id"]
+            agg[pid]["elo_delta"] += row["delta"] or 0.0
+            agg[pid]["pa_count"] += row["total_pa"] or 0
+            player_info[pid] = row["players"]
+
+        # Exclude position players who made a garbage-time appearance in the wrong role
+        min_pa = 5 if position == "pitcher" else 3
+        filtered = [(pid, data) for pid, data in agg.items() if data["pa_count"] >= min_pa]
+        sorted_results = sorted(filtered, key=lambda x: x[1]["elo_delta"], reverse=True)
+        page_slice = sorted_results[offset: offset + limit]
+        return [
+            {
+                "player_id": pid,
+                "elo_delta": round(data["elo_delta"], 1),
+                "batting_elo": None,
+                "pitching_elo": None,
+                "composite_elo": None,
+                "pa_count": data["pa_count"],
+                "batting_pa": data["pa_count"] if position == "batter" else 0,
+                "pitching_pa": data["pa_count"] if position == "pitcher" else 0,
+                "last_game_date": None,
+                "full_name": player_info[pid]["full_name"],
+                "team": player_info[pid]["team"],
+                "position": player_info[pid]["position"],
+            }
+            for pid, data in page_slice
+        ]
+
     sort_column = "pitching_elo" if position == "pitcher" else "batting_elo"
     pa_column = "pitching_pa" if position == "pitcher" else "batting_pa"
 
-    resp = (
+    query = (
         sb.table("player_elo")
         .select("player_id, composite_elo, batting_elo, pitching_elo, pa_count, batting_pa, pitching_pa, last_game_date, players!inner(full_name, team, position)")
         .gt(pa_column, 0)
         .order(sort_column, desc=True)
         .range(offset, offset + limit - 1)
-        .execute()
     )
+    if team:
+        query = query.eq("players.team", team)
+    resp = query.execute()
     return [_flatten_leaderboard(row) for row in resp.data]
 
 

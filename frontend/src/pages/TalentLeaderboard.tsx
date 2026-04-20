@@ -6,6 +6,15 @@ import { useSeasonMeta } from '../hooks/useElo';
 import TalentLeaderboardTable from '../components/talent/TalentLeaderboardTable';
 import { ALL_TALENTS, BATTER_TALENTS, PITCHER_TALENTS } from '../types/talent';
 import type { TalentMeta } from '../types/talent';
+import { MLB_TEAMS } from '../constants/mlb';
+
+type TimePeriod = 'season' | 'current_season' | 'last_30' | 'last_7';
+const TIME_PERIOD_LABELS: Record<TimePeriod, string> = {
+  season: 'Overall ELO',
+  current_season: 'This Season',
+  last_30: 'Last 30 Days',
+  last_7: 'Last 7 Days',
+};
 
 const ESTIMATED_TOTAL: Record<string, number> = {
   batter: 673,
@@ -19,19 +28,28 @@ export default function TalentLeaderboard() {
 
   const [activeTab, setActiveTab] = useState<TalentMeta>(initialTab);
   const [page, setPage] = useState(1);
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>('season');
+  const [teamFilter, setTeamFilter] = useState('');
   const limit = 20;
+  const { data: seasonMeta } = useSeasonMeta();
+  const days = timePeriod === 'last_7' ? 7 : timePeriod === 'last_30' ? 30 : undefined;
+  const fromDate = timePeriod === 'current_season' ? `${seasonMeta?.year ?? 2026}-01-01` : undefined;
+  const isDelta = !!days || !!fromDate;
 
   const { data: players = [], isLoading } = useTalentLeaderboard({
     talentType: activeTab.dbType,
     playerRole: activeTab.role,
     page,
     limit,
+    team: teamFilter || undefined,
+    days,
+    from_date: fromDate,
   });
-
-  const { data: seasonMeta } = useSeasonMeta();
 
   useEffect(() => {
     setPage(1);
+    setTimePeriod('season');
+    setTeamFilter('');
     setSearchParams({ type: activeTab.type }, { replace: true });
   }, [activeTab, setSearchParams]);
 
@@ -98,11 +116,36 @@ export default function TalentLeaderboard() {
         </div>
       </div>
 
-      {/* Role indicator */}
-      <div className="text-sm text-text-secondary">
-        {activeTab.role === 'batter' ? 'Batter' : 'Pitcher'} dimension
-        {' · '}
-        {ESTIMATED_TOTAL[activeTab.role] || '—'} players
+      {/* Role indicator + Filters */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-sm text-text-secondary">
+          {activeTab.role === 'batter' ? 'Batter' : 'Pitcher'} dimension
+          {' · '}
+          {ESTIMATED_TOTAL[activeTab.role] || '—'} players
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1">
+            {(['season', 'current_season', 'last_30', 'last_7'] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => { setTimePeriod(p); setPage(1); }}
+                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                  timePeriod === p ? 'bg-primary text-white' : 'bg-bg-elevated text-text-secondary hover:bg-bg-elevated'
+                }`}
+              >
+                {TIME_PERIOD_LABELS[p]}
+              </button>
+            ))}
+          </div>
+          <select
+            value={teamFilter}
+            onChange={(e) => { setTeamFilter(e.target.value); setPage(1); }}
+            className="px-3 py-1.5 rounded-lg text-sm bg-bg-elevated text-text-primary border border-border-line"
+          >
+            <option value="">All Teams</option>
+            {MLB_TEAMS.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
       </div>
 
       {/* Table */}
@@ -111,6 +154,7 @@ export default function TalentLeaderboard() {
         isLoading={isLoading}
         startRank={(page - 1) * limit + 1}
         totalInDimension={ESTIMATED_TOTAL[activeTab.role] || 0}
+        isDelta={isDelta}
       />
 
       {/* Pagination */}

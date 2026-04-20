@@ -13,25 +13,33 @@ export interface LeaderboardParams {
   position?: string;
   page?: number;
   limit?: number;
+  team?: string;
+  days?: number;
+  from_date?: string;
 }
 
 export interface LeaderboardPlayer {
   player_id: number;
-  composite_elo: number;
-  batting_elo: number;
-  pitching_elo: number;
+  composite_elo: number | null;
+  batting_elo: number | null;
+  pitching_elo: number | null;
   pa_count: number;
   batting_pa: number;
   pitching_pa: number;
-  last_game_date: string;
+  last_game_date: string | null;
   full_name: string;
   team: string;
   position: string;
+  elo_delta?: number;
 }
 
 export async function getLeaderboard(params: LeaderboardParams): Promise<LeaderboardPlayer[]> {
-  const { position = 'batter', page = 1, limit = 20 } = params;
-  return apiFetch(`/api/elo/leaderboard?position=${position}&page=${page}&limit=${limit}`);
+  const { position = 'batter', page = 1, limit = 20, team, days, from_date } = params;
+  const p = new URLSearchParams({ position, page: String(page), limit: String(limit) });
+  if (team) p.set('team', team);
+  if (days) p.set('days', String(days));
+  if (from_date) p.set('from_date', from_date);
+  return apiFetch(`/api/elo/leaderboard?${p.toString()}`);
 }
 
 export async function getPlayerElo(playerId: string): Promise<PlayerElo & { player: Player }> {

@@ -70,10 +70,11 @@ export function toUiTalentType(dbType: string, playerRole: string): TalentType {
 
 export interface TalentLeaderboardPlayer {
   player_id: number;
-  season_elo: number;
-  career_elo: number;
+  season_elo: number | null;
+  career_elo: number | null;
   pa_count: number;
   full_name: string;
   team: string;
   position: string;
+  elo_delta?: number;
 }

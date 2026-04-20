@@ -47,3 +47,6 @@ Thumbs.db
 
 # Scripts
 scripts/ESPN_API.py
+current_fantasy_team.md
+free_agents.md
+scripts/export_speed_elo.py

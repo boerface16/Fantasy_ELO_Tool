@@ -22,6 +22,7 @@ import os
 import time
 from datetime import date
 
+import cloudscraper
 import requests
 from dotenv import load_dotenv
 from pybaseball import statcast_batter_expected_stats, statcast_pitcher_expected_stats
@@ -35,6 +36,8 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 FG_BASE = "https://www.fangraphs.com/api/leaders/major-league/data"
 FG_HEADERS = {"User-Agent": "Mozilla/5.0"}
 FG_TIMEOUT = 20
+FG_RETRY_COUNT = 3
+FG_RETRY_WAIT = 15  # seconds between retries on 403/timeout
 
 
 def _get_supabase():
@@ -72,22 +75,32 @@ def _fetch_statcast_xwoba(season: int) -> dict[int, float]:
 
 
 def _fetch_fg(stats: str, season: int) -> list[dict]:
-    """Fetch Fangraphs leaderboard (stats='bat' or 'pit'). Returns [] on 403."""
+    """Fetch Fangraphs leaderboard (stats='bat' or 'pit'). Uses cloudscraper to bypass bot detection."""
     params = {
         "age": "", "pos": "all", "stats": stats, "lg": "all",
         "season": season, "season1": season, "ind": 0, "qual": 0,
         "type": 8, "month": 0, "pageitems": 2000, "pagenum": 1,
     }
-    try:
-        r = requests.get(FG_BASE, params=params, headers=FG_HEADERS, timeout=FG_TIMEOUT)
-        if r.status_code == 403:
-            logger.warning(f"  Fangraphs {stats} returned 403 — skipping (will retry next run)")
-            return []
-        r.raise_for_status()
-        return r.json().get("data", [])
-    except Exception as e:
-        logger.warning(f"  Fangraphs {stats} fetch failed: {e}")
-        return []
+    scraper = cloudscraper.create_scraper()
+    for attempt in range(1, FG_RETRY_COUNT + 1):
+        try:
+            r = scraper.get(FG_BASE, params=params, timeout=FG_TIMEOUT)
+            if r.status_code == 403:
+                if attempt < FG_RETRY_COUNT:
+                    logger.warning(f"  Fangraphs {stats} 403 (attempt {attempt}/{FG_RETRY_COUNT}) — waiting {FG_RETRY_WAIT}s")
+                    time.sleep(FG_RETRY_WAIT)
+                    continue
+                logger.warning(f"  Fangraphs {stats} 403 after {FG_RETRY_COUNT} attempts — skipping")
+                return []
+            r.raise_for_status()
+            return r.json().get("data", [])
+        except Exception as e:
+            if attempt < FG_RETRY_COUNT:
+                logger.warning(f"  Fangraphs {stats} error (attempt {attempt}/{FG_RETRY_COUNT}): {e} — waiting {FG_RETRY_WAIT}s")
+                time.sleep(FG_RETRY_WAIT)
+            else:
+                logger.warning(f"  Fangraphs {stats} failed after {FG_RETRY_COUNT} attempts: {e}")
+    return []
 
 
 def build_rows(season: int) -> dict[int, dict]:
@@ -121,7 +134,7 @@ def build_rows(season: int) -> dict[int, dict]:
     logger.info(f"  Fangraphs batting: {len(fg_bat)} records")
 
     # Sleep to avoid rate-limiting the pitching call
-    time.sleep(5)
+    time.sleep(10)
 
     # ── xFIP-, SIERA from Fangraphs pitching ─────────────────────────────────
     logger.info("Fetching xFIP-/SIERA from Fangraphs (pitching)...")

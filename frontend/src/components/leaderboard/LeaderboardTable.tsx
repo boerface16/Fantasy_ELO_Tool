@@ -8,9 +8,11 @@ interface LeaderboardTableProps {
   isLoading?: boolean;
   startRank?: number;
   position?: string;
+  isDelta?: boolean;
 }
 
-export default function LeaderboardTable({ players, isLoading = false, startRank = 1, position }: LeaderboardTableProps) {
+export default function LeaderboardTable({ players, isLoading = false, startRank = 1, position, isDelta = false }: LeaderboardTableProps) {
+  const colSpan = isDelta ? 5 : 6;
   return (
     <div className="bg-bg-card rounded-lg shadow-modern border border-border-line overflow-hidden">
       <div className="overflow-x-auto">
@@ -20,23 +22,23 @@ export default function LeaderboardTable({ players, isLoading = false, startRank
             <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">#</th>
             <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Player</th>
             <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Team</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase">ELO</th>
+            <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase">{isDelta ? 'ELO ±' : 'ELO'}</th>
             <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase">PA</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase">Last Game</th>
+            {!isDelta && <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase">Last Game</th>}
           </tr>
         </thead>
         <tbody>
           {isLoading ? (
             Array.from({ length: 5 }).map((_, i) => (
               <tr key={i} className="animate-pulse border-b border-border-line">
-                <td colSpan={6} className="px-4 py-4">
+                <td colSpan={colSpan} className="px-4 py-4">
                   <div className="h-5 bg-bg-elevated/60 rounded w-full"></div>
                 </td>
               </tr>
             ))
           ) : players.length === 0 ? (
             <tr>
-              <td colSpan={6} className="px-4 py-8 text-center text-text-secondary">
+              <td colSpan={colSpan} className="px-4 py-8 text-center text-text-secondary">
                 No players found
               </td>
             </tr>
@@ -47,6 +49,7 @@ export default function LeaderboardTable({ players, isLoading = false, startRank
                 player={player}
                 rank={startRank + index}
                 position={position}
+                isDelta={isDelta}
               />
             ))
           )}
@@ -57,13 +60,14 @@ export default function LeaderboardTable({ players, isLoading = false, startRank
   );
 }
 
-function LeaderboardRow({ player, rank, position }: { player: LeaderboardPlayer; rank: number; position?: string }) {
+function LeaderboardRow({ player, rank, position, isDelta }: { player: LeaderboardPlayer; rank: number; position?: string; isDelta?: boolean }) {
   const navigate = useNavigate();
   const roleElo = position === 'pitcher' ? player.pitching_elo : player.batting_elo;
   const rolePa = position === 'pitcher' ? player.pitching_pa : player.batting_pa;
-  const tier = getEloTier(roleElo);
+  const tier = getEloTier(roleElo ?? 1500);
   const tierColor = getEloTierColor(tier);
   const isTwoWay = player.batting_pa > 0 && player.pitching_pa > 0;
+  const delta = player.elo_delta ?? 0;
 
   return (
     <tr
@@ -73,18 +77,24 @@ function LeaderboardRow({ player, rank, position }: { player: LeaderboardPlayer;
       <td className="px-4 py-3 text-sm font-bold text-text-secondary">{rank}</td>
       <td className="px-4 py-3 text-sm font-semibold text-text-primary">
         {player.full_name}
-        {isTwoWay && (
+        {isTwoWay && !isDelta && (
           <span className="ml-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400">
             TWP
           </span>
         )}
       </td>
       <td className="px-4 py-3 text-sm"><TeamBadge code={player.team} /></td>
-      <td className={`px-4 py-3 text-sm font-bold text-right ${tierColor}`}>
-        {Math.round(roleElo)}
-      </td>
+      {isDelta ? (
+        <td className={`px-4 py-3 text-sm font-bold text-right ${delta >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+          {delta >= 0 ? '+' : ''}{delta.toFixed(1)}
+        </td>
+      ) : (
+        <td className={`px-4 py-3 text-sm font-bold text-right ${tierColor}`}>
+          {Math.round(roleElo ?? 1500)}
+        </td>
+      )}
       <td className="px-4 py-3 text-sm text-right text-text-secondary">{rolePa}</td>
-      <td className="px-4 py-3 text-sm text-right text-text-secondary">{player.last_game_date}</td>
+      {!isDelta && <td className="px-4 py-3 text-sm text-right text-text-secondary">{player.last_game_date}</td>}
     </tr>
   );
 }

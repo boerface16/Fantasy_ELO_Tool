@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useQueries } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, GitCompare } from 'lucide-react';
 import EloCandlestickChart from '../components/player/EloCandlestickChart';
+import EloCompareChart from '../components/player/EloCompareChart';
+import PlayerCompareSearch from '../components/player/PlayerCompareSearch';
+import type { ComparedPlayer } from '../components/player/PlayerCompareSearch';
+import type { CompareSeries } from '../components/player/EloCompareChart';
 import { getEloTier, getEloTierColor } from '../types/elo';
 import { getTeamBorderColor } from '../utils/teamColors';
 import { usePlayerElo, usePlayerOhlc, usePlayerStats, usePlayerGames, useSeasonMeta, usePlayerStatLine } from '../hooks/useElo';
@@ -11,6 +16,10 @@ import TeamLogo from '../components/common/TeamLogo';
 import TalentCardSection from '../components/player/TalentCardSection';
 import StatLine from '../components/player/StatLine';
 import type { PlayerGameEntry } from '../api/elo';
+import * as eloApi from '../api/elo';
+import * as talentApi from '../api/talent';
+
+const PLAYER_COLORS = ['#ffb000', '#648fff', '#fe6100', '#dc267f', '#785ef0'];
 
 type RoleTab = 'BATTING' | 'PITCHING';
 
@@ -125,27 +134,60 @@ function LastGamesTable({ games, role }: { games: PlayerGameEntry[]; role: RoleT
   );
 }
 
-function RoleSection({ playerId, role }: { playerId: string; role: RoleTab }) {
+function RoleSection({
+  playerId,
+  role,
+  playerName,
+  playerTeam,
+}: {
+  playerId: string;
+  role: RoleTab;
+  playerName: string;
+  playerTeam: string;
+}) {
   const [eloView, setEloView] = useState<string>('main');
   const [chartScope, setChartScope] = useState<'season' | 'all'>('season');
+  const [compareMode, setCompareMode] = useState(false);
+  const [comparedPlayers, setComparedPlayers] = useState<ComparedPlayer[]>([]);
   const { data: seasonMeta } = useSeasonMeta();
   const seasonYear = seasonMeta?.year ?? new Date().getFullYear();
+  const scopeSeason = chartScope === 'season' ? seasonYear : undefined;
 
-  // Reset to main ELO when role changes (two-way players)
-  useEffect(() => { setEloView('main'); }, [role]);
+  // Reset to main ELO and clear compare when role changes (two-way players)
+  useEffect(() => {
+    setEloView('main');
+    setCompareMode(false);
+    setComparedPlayers([]);
+  }, [role]);
 
-  const { data: ohlcData, isLoading: ohlcLoading } = usePlayerOhlc(
-    playerId,
-    role,
-    chartScope === 'season' ? seasonYear : undefined,
-  );
+  const { data: ohlcData, isLoading: ohlcLoading } = usePlayerOhlc(playerId, role, scopeSeason);
   const { data: talentOhlcData, isLoading: talentOhlcLoading } = usePlayerTalentOhlc(
     playerId,
     eloView !== 'main' ? eloView : '',
-    chartScope === 'season' ? seasonYear : undefined,
+    scopeSeason,
   );
   const { data: stats, isLoading: statsLoading } = usePlayerStats(playerId, role);
   const { data: recentGames, isLoading: gamesLoading } = usePlayerGames(playerId, role, 5);
+
+  // Fetch OHLC for compared players (main ELO)
+  const compareMainQueries = useQueries({
+    queries: comparedPlayers.map(p => ({
+      queryKey: ['playerOhlc', p.playerId, role, scopeSeason],
+      queryFn: () => eloApi.getPlayerOhlc(p.playerId, role, scopeSeason),
+      staleTime: 60_000,
+      enabled: compareMode,
+    })),
+  });
+
+  // Fetch OHLC for compared players (talent)
+  const compareTalentQueries = useQueries({
+    queries: comparedPlayers.map(p => ({
+      queryKey: ['playerTalentOhlc', p.playerId, eloView, scopeSeason],
+      queryFn: () => talentApi.getPlayerTalentOhlc(p.playerId, eloView, scopeSeason),
+      staleTime: 60_000,
+      enabled: compareMode && eloView !== 'main',
+    })),
+  });
 
   const talentList = role === 'PITCHING' ? PITCHER_TALENTS : BATTER_TALENTS;
   const chartData = eloView === 'main' ? (ohlcData ?? []) : (talentOhlcData ?? []);
@@ -153,6 +195,21 @@ function RoleSection({ playerId, role }: { playerId: string; role: RoleTab }) {
     ? `${role === 'BATTING' ? 'Batting' : 'Pitching'} ELO History`
     : `${talentList.find(t => t.dbType === eloView)?.label ?? eloView} ELO History`;
   const chartLoading = eloView === 'main' ? ohlcLoading : talentOhlcLoading;
+
+  const currentPlayer: ComparedPlayer = { playerId, name: playerName, team: playerTeam };
+
+  const compareSeries: CompareSeries[] = [
+    { playerId, name: playerName, team: playerTeam, color: PLAYER_COLORS[0], data: chartData },
+    ...comparedPlayers.map((p, i) => ({
+      playerId: p.playerId,
+      name: p.name,
+      team: p.team,
+      color: PLAYER_COLORS[i + 1],
+      data: (eloView === 'main'
+        ? compareMainQueries[i]?.data
+        : compareTalentQueries[i]?.data) ?? [],
+    })),
+  ];
 
   if ((ohlcLoading && eloView === 'main') || statsLoading) {
     return (
@@ -167,9 +224,24 @@ function RoleSection({ playerId, role }: { playerId: string; role: RoleTab }) {
   return (
     <div className="space-y-6">
       <div className="bg-bg-card rounded-lg shadow-modern p-6">
+        {/* Chart header */}
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold">{chartTitle}</h3>
-          <div className="flex gap-1">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setCompareMode(m => !m);
+                if (compareMode) setComparedPlayers([]);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold transition-all ${
+                compareMode
+                  ? 'bg-primary text-white'
+                  : 'bg-bg-elevated text-text-secondary hover:bg-bg-elevated'
+              }`}
+            >
+              <GitCompare className="w-3.5 h-3.5" />
+              Compare
+            </button>
             {(['season', 'all'] as const).map((s) => (
               <button
                 key={s}
@@ -183,6 +255,7 @@ function RoleSection({ playerId, role }: { playerId: string; role: RoleTab }) {
             ))}
           </div>
         </div>
+
         {/* ELO view toggle buttons */}
         <div className="flex flex-wrap gap-1 mb-4">
           <button
@@ -205,8 +278,26 @@ function RoleSection({ playerId, role }: { playerId: string; role: RoleTab }) {
             </button>
           ))}
         </div>
+
+        {/* Compare search UI */}
+        {compareMode && (
+          <div className="mb-4 p-3 rounded-lg bg-bg-elevated/40 border border-border-line">
+            <PlayerCompareSearch
+              currentPlayer={currentPlayer}
+              role={role}
+              compared={comparedPlayers}
+              colors={PLAYER_COLORS}
+              onAdd={(p) => setComparedPlayers(prev => [...prev, p])}
+              onRemove={(id) => setComparedPlayers(prev => prev.filter(p => p.playerId !== id))}
+            />
+          </div>
+        )}
+
+        {/* Chart */}
         {chartLoading ? (
           <div className="h-[400px] bg-bg-elevated/50 rounded animate-pulse" />
+        ) : compareMode ? (
+          <EloCompareChart series={compareSeries} height={400} />
         ) : (
           <EloCandlestickChart data={chartData} height={400} />
         )}
@@ -383,7 +474,12 @@ export default function PlayerProfile() {
         position={currentRole === 'PITCHING' ? 'pitcher' : 'batter'}
       />
       {/* Chart + Stats (role-filtered) */}
-      <RoleSection playerId={playerId ?? ''} role={currentRole} />
+      <RoleSection
+        playerId={playerId ?? ''}
+        role={currentRole}
+        playerName={player.full_name}
+        playerTeam={player.team}
+      />
     </div>
   );
 }

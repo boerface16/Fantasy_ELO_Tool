@@ -1,22 +1,59 @@
 import { useParams, Link } from 'react-router-dom';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { createChart, LineSeries } from 'lightweight-charts';
 import type { IChartApi, LineData, Time } from 'lightweight-charts';
+import { useQueries } from '@tanstack/react-query';
 import { useTeamElo, useTeamEloHistory } from '../hooks/useFantasy';
+import * as fantasyApi from '../api/fantasy';
 import { getChartColor } from '../utils/teamColors';
+import TeamCompareChart from '../components/team/TeamCompareChart';
+import TeamCompareSearch from '../components/team/TeamCompareSearch';
+import type { TeamCompareSeries } from '../components/team/TeamCompareChart';
+
+const TEAM_COLORS = ['#ffb000', '#648fff', '#fe6100', '#dc267f', '#785ef0'];
 
 export default function TeamEloDetail() {
   const { teamCode = '' } = useParams<{ teamCode: string }>();
   const { data: detail, isLoading: detailLoading } = useTeamElo(teamCode);
   const { data: history = [], isLoading: historyLoading } = useTeamEloHistory(teamCode);
 
+  const [compareMode, setCompareMode] = useState(false);
+  const [comparedTeams, setComparedTeams] = useState<string[]>([]);
+
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
 
   const color = getChartColor(teamCode);
 
+  // Reset compare state when team changes
   useEffect(() => {
+    setCompareMode(false);
+    setComparedTeams([]);
+  }, [teamCode]);
+
+  const comparedQueries = useQueries({
+    queries: comparedTeams.map(tc => ({
+      queryKey: ['teamEloHistory', tc],
+      queryFn: () => fantasyApi.getTeamEloHistory(tc),
+      enabled: compareMode,
+      staleTime: 5 * 60 * 1000,
+    })),
+  });
+
+  const compareSeries: TeamCompareSeries[] = compareMode
+    ? [
+        { teamCode, color: TEAM_COLORS[0], data: history },
+        ...comparedTeams.map((tc, i) => ({
+          teamCode: tc,
+          color: TEAM_COLORS[i + 1] ?? '#888',
+          data: comparedQueries[i]?.data ?? [],
+        })),
+      ]
+    : [];
+
+  useEffect(() => {
+    if (compareMode) return;
     if (!chartContainerRef.current || history.length === 0) return;
 
     if (chartRef.current) {
@@ -51,7 +88,6 @@ export default function TeamEloDetail() {
         lastValueVisible: true,
       });
 
-      // Deduplicate by date — keep last game of the day (doubleheaders produce 2 records)
       const byDate = new Map<string, number>();
       for (const h of history) byDate.set(h.date, h.eloAfter);
       const lineData: LineData<Time>[] = Array.from(byDate.entries())
@@ -69,7 +105,7 @@ export default function TeamEloDetail() {
         chartRef.current = null;
       }
     };
-  }, [history, color]);
+  }, [history, color, compareMode]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -106,13 +142,40 @@ export default function TeamEloDetail() {
 
       {/* Chart */}
       <div className="bg-bg-card rounded-lg border border-border-line p-4">
-        <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">
-          ELO Over Time
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider">
+            ELO Over Time
+          </h3>
+          <button
+            onClick={() => setCompareMode(m => !m)}
+            className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+              compareMode
+                ? 'bg-accent text-white'
+                : 'bg-bg-elevated text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            Compare
+          </button>
+        </div>
+
+        {compareMode && (
+          <div className="mb-4">
+            <TeamCompareSearch
+              primaryTeam={teamCode}
+              compared={comparedTeams}
+              colors={TEAM_COLORS}
+              onAdd={tc => setComparedTeams(prev => [...prev, tc])}
+              onRemove={tc => setComparedTeams(prev => prev.filter(t => t !== tc))}
+            />
+          </div>
+        )}
+
         {isLoading ? (
           <div className="h-[400px] flex items-center justify-center text-text-secondary">Loading...</div>
         ) : history.length === 0 ? (
           <div className="h-[400px] flex items-center justify-center text-text-secondary">No history available</div>
+        ) : compareMode ? (
+          <TeamCompareChart series={compareSeries} />
         ) : (
           <div ref={chartContainerRef} />
         )}

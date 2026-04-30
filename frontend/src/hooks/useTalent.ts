@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import * as talentApi from '../api/talent';
 import type { TalentLeaderboardParams } from '../api/talent';
 
@@ -17,6 +17,17 @@ export function usePlayerTalentOhlc(playerId: string, talentType: string, season
     queryFn: () => talentApi.getPlayerTalentOhlc(playerId, talentType, season),
     enabled: !!playerId && !!talentType,
     staleTime: 60_000,
+  });
+}
+
+export function useMultiPlayerTalentRadar(playerIds: string[]) {
+  return useQueries({
+    queries: playerIds.map(id => ({
+      queryKey: ['playerTalentRadar', id],
+      queryFn: () => talentApi.getPlayerTalentRadar(id),
+      enabled: !!id,
+      staleTime: 60_000,
+    })),
   });
 }
 

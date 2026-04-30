@@ -14,12 +14,12 @@ import { usePlayerTalentOhlc } from '../hooks/useTalent';
 import { BATTER_TALENTS, PITCHER_TALENTS } from '../types/talent';
 import TeamLogo from '../components/common/TeamLogo';
 import TalentCardSection from '../components/player/TalentCardSection';
+import RadarSection from '../components/player/RadarSection';
 import StatLine from '../components/player/StatLine';
 import type { PlayerGameEntry } from '../api/elo';
 import * as eloApi from '../api/elo';
 import * as talentApi from '../api/talent';
-
-const PLAYER_COLORS = ['#ffb000', '#648fff', '#fe6100', '#dc267f', '#785ef0'];
+import { PLAYER_COLORS } from '../constants/colors';
 
 type RoleTab = 'BATTING' | 'PITCHING';
 
@@ -477,6 +477,13 @@ export default function PlayerProfile() {
       <RoleSection
         playerId={playerId ?? ''}
         role={currentRole}
+        playerName={player.full_name}
+        playerTeam={player.team}
+      />
+      {/* ELO Fingerprint Radar */}
+      <RadarSection
+        playerId={playerId ?? ''}
+        role={currentRole === 'PITCHING' ? 'pitcher' : 'batter'}
         playerName={player.full_name}
         playerTeam={player.team}
       />

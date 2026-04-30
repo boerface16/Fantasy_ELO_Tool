@@ -6,8 +6,7 @@ export type TalentType =
   | 'clutch'
   | 'stuff'
   | 'bip_suppression'
-  | 'command'
-  | 'pitcher_clutch';
+  | 'command';
 
 export type DbTalentType =
   | 'contact'
@@ -27,11 +26,20 @@ export interface TalentDimension {
   seasonRank: number | null;
   careerRank: number | null;
   totalPlayers: number;
+  leagueMean: number | null;
+  leagueStd: number | null;
+}
+
+export interface MainEloInfo {
+  seasonElo: number;
+  leagueMean: number;
+  leagueStd: number;
 }
 
 export interface PlayerTalentRadar {
   playerId: number;
   dimensions: TalentDimension[];
+  mainElo: MainEloInfo | null;
 }
 
 export interface TalentMeta {
@@ -54,7 +62,6 @@ export const PITCHER_TALENTS: TalentMeta[] = [
   { type: 'stuff', dbType: 'stuff', label: 'Stuff', icon: 'Sparkles', role: 'pitcher' },
   { type: 'bip_suppression', dbType: 'bip_suppression', label: 'BIP Supp.', icon: 'Shield', role: 'pitcher' },
   { type: 'command', dbType: 'command', label: 'Command', icon: 'Crosshair', role: 'pitcher' },
-  { type: 'pitcher_clutch', dbType: 'clutch', label: 'Clutch', icon: 'Trophy', role: 'pitcher' },
 ];
 
 export const ALL_TALENTS: TalentMeta[] = [...BATTER_TALENTS, ...PITCHER_TALENTS];
@@ -63,8 +70,7 @@ export function getTalentMeta(talentType: TalentType): TalentMeta | undefined {
   return ALL_TALENTS.find(t => t.type === talentType);
 }
 
-export function toUiTalentType(dbType: string, playerRole: string): TalentType {
-  if (dbType === 'clutch' && playerRole === 'pitcher') return 'pitcher_clutch';
+export function toUiTalentType(dbType: string): TalentType {
   return dbType as TalentType;
 }
 

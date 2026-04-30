@@ -1,5 +1,8 @@
 """Talent endpoints — ports of frontend/src/api/talent.ts Supabase queries."""
 
+import statistics
+from collections import defaultdict
+
 from fastapi import APIRouter, Query
 from src.api.deps import get_supabase
 
@@ -12,18 +15,80 @@ async def player_talent_radar(player_id: int):
     resp = sb.rpc("get_player_talent_radar", {"p_player_id": player_id}).execute()
 
     dimensions = []
+    player_role = None
     for row in (resp.data or []):
+        if player_role is None:
+            player_role = row["player_role"]
         dimensions.append({
-            "talentType": row["talent_type"],
-            "playerRole": row["player_role"],
-            "seasonElo": row["season_elo"],
-            "careerElo": row["career_elo"],
-            "seasonRank": row.get("season_rank"),
-            "careerRank": row.get("career_rank"),
+            "talentType":   row["talent_type"],
+            "playerRole":   row["player_role"],
+            "seasonElo":    row["season_elo"],
+            "careerElo":    row["career_elo"],
+            "seasonRank":   row.get("season_rank"),
+            "careerRank":   row.get("career_rank"),
             "totalPlayers": row.get("total_in_role"),
+            "leagueMean":   None,
+            "leagueStd":    None,
         })
 
-    return {"playerId": player_id, "dimensions": dimensions}
+    # Fetch league ELO distribution for z-score normalization
+    if player_role and dimensions:
+        db_types = list({
+            "clutch" if d["talentType"] == "pitcher_clutch" else d["talentType"]
+            for d in dimensions
+        })
+        league_resp = (
+            sb.table("talent_player_current")
+            .select("talent_type, season_elo")
+            .eq("player_role", player_role)
+            .in_("talent_type", db_types)
+            .gte("pa_count", 20)
+            .not_.is_("season_elo", "null")
+            .execute()
+        )
+        elo_by_type: dict = defaultdict(list)
+        for row in (league_resp.data or []):
+            elo_by_type[row["talent_type"]].append(row["season_elo"])
+
+        for dim in dimensions:
+            db_key = "clutch" if dim["talentType"] == "pitcher_clutch" else dim["talentType"]
+            elos = elo_by_type.get(db_key, [])
+            if len(elos) >= 2:
+                dim["leagueMean"] = statistics.mean(elos)
+                dim["leagueStd"]  = statistics.stdev(elos)
+            else:
+                dim["leagueMean"] = 1500.0
+                dim["leagueStd"]  = 50.0
+
+    # Fetch main ELO with league distribution for z-score normalization
+    main_elo = None
+    if player_role:
+        elo_col = "batting_elo" if player_role == "batter" else "pitching_elo"
+        pa_col  = "batting_pa"  if player_role == "batter" else "pitching_pa"
+
+        target = (
+            sb.table("player_elo")
+            .select(elo_col)
+            .eq("player_id", player_id)
+            .single()
+            .execute()
+        )
+        league_elos_resp = (
+            sb.table("player_elo")
+            .select(elo_col)
+            .gt(pa_col, 0)
+            .not_.is_(elo_col, "null")
+            .execute()
+        )
+        league_main_elos = [r[elo_col] for r in (league_elos_resp.data or []) if r[elo_col] is not None]
+        if target.data and len(league_main_elos) >= 2:
+            main_elo = {
+                "seasonElo":  target.data[elo_col] or 1500.0,
+                "leagueMean": statistics.mean(league_main_elos),
+                "leagueStd":  statistics.stdev(league_main_elos),
+            }
+
+    return {"playerId": player_id, "dimensions": dimensions, "mainElo": main_elo}
 
 
 @router.get("/players/{player_id}/ohlc")

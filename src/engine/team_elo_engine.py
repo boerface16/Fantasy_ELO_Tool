@@ -171,44 +171,73 @@ class TeamEloEngine:
 def extract_game_results(pa_rows: list[dict]) -> list[GameResult]:
     """Extract one GameResult per game_pk from raw plate appearance rows.
 
-    Uses the last PA per game (highest pa_id) to read final scores.
-    inning_half determines score mapping:
-      - 'Top': away team batting → bat_score=away, fld_score=home
-      - 'Bot': home team batting → bat_score=home, fld_score=away
+    Scans all regular PAs (excluding baserunning events whose pa_ids are in the
+    game_pk × 1_000_000 range) and tracks the maximum home/away score seen.
+    Using the max handles walk-off scoring: the last PA's bat_score/fld_score
+    reflects the score at the *start* of that PA, so if the home team wins on
+    the final play the walk-off run won't appear in any row. We detect this by
+    checking whether the last regular PA was in the Bot half with home ≤ away,
+    and apply a minimum +1 correction.
+
+    inning_half score mapping:
+      - 'Top': away batting → bat_score=away, fld_score=home
+      - 'Bot': home batting → bat_score=home, fld_score=away
     """
-    # Group by game_pk, keep only the row with max pa_id
-    games: dict[int, dict] = {}
+    groups: dict[int, dict] = {}
+
     for row in pa_rows:
         gpk = int(row["game_pk"])
         pa_id = int(row["pa_id"])
-        if gpk not in games or pa_id > int(games[gpk]["pa_id"]):
-            games[gpk] = row
 
-    results = []
-    for row in games.values():
-        bat_score = int(row["bat_score"])
-        fld_score = int(row["fld_score"])
+        # Baserunning events (SB/CS/PKO) use pa_id = game_pk × 1_000_000 + …
+        # and have bat_score=0/fld_score=0. Skip them for score tracking.
+        if pa_id >= gpk * 1_000_000:
+            continue
+
+        if gpk not in groups:
+            groups[gpk] = {
+                "meta": row,
+                "max_home": 0,
+                "max_away": 0,
+                "last_pa_id": -1,
+                "last_half": None,
+            }
+
+        bat = int(row["bat_score"] or 0)
+        fld = int(row["fld_score"] or 0)
+        g = groups[gpk]
 
         if row["inning_half"] == "Top":
-            # Away team batting: bat_score=away, fld_score=home
-            away_score = bat_score
-            home_score = fld_score
+            g["max_away"] = max(g["max_away"], bat)
+            g["max_home"] = max(g["max_home"], fld)
         else:
-            # Home team batting (Bot): bat_score=home, fld_score=away
-            home_score = bat_score
-            away_score = fld_score
+            g["max_home"] = max(g["max_home"], bat)
+            g["max_away"] = max(g["max_away"], fld)
 
-        # Skip ties (shouldn't happen in MLB, but defensive)
+        if pa_id > g["last_pa_id"]:
+            g["last_pa_id"] = pa_id
+            g["last_half"] = row["inning_half"]
+
+    results = []
+    for gpk, g in groups.items():
+        home_score = g["max_home"]
+        away_score = g["max_away"]
+
+        # Walk-off: last regular PA is Bot (home batting) and home ≤ away.
+        # The home team must have won on that play, so bump by 1 minimum.
+        if g["last_half"] == "Bot" and home_score <= away_score:
+            home_score = away_score + 1
+
         if home_score == away_score:
             continue
 
-        game_date_str = str(row["game_date"])[:10]
+        meta = g["meta"]
         results.append(
             GameResult(
-                game_pk=int(row["game_pk"]),
-                game_date=date.fromisoformat(game_date_str),
-                home_team=row["home_team"],
-                away_team=row["away_team"],
+                game_pk=gpk,
+                game_date=date.fromisoformat(str(meta["game_date"])[:10]),
+                home_team=meta["home_team"],
+                away_team=meta["away_team"],
                 home_score=home_score,
                 away_score=away_score,
             )
